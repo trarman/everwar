@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:ns1="http://cxf.apache.org/bindings/xformat" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://tile.ws.editor.rpg.beacon.com/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="TileServiceService" targetNamespace="http://tile.ws.editor.rpg.beacon.com/">
+  <wsdl:types>
+    <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="unqualified" targetNamespace="http://tile.ws.editor.rpg.beacon.com/" version="1.0">
+<xs:element name="addTile" type="tns:addTile"/>
+<xs:element name="addTileResponse" type="tns:addTileResponse"/>
+<xs:element name="getTileById" type="tns:getTileById"/>
+<xs:element name="getTileByIdResponse" type="tns:getTileByIdResponse"/>
+<xs:element name="getTilesByCategoryId" type="tns:getTilesByCategoryId"/>
+<xs:element name="getTilesByCategoryIdResponse" type="tns:getTilesByCategoryIdResponse"/>
+<xs:element name="updateTileById" type="tns:updateTileById"/>
+<xs:element name="updateTileByIdResponse" type="tns:updateTileByIdResponse"/>
+<xs:complexType name="addTile">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="name" type="xs:string"/>
+      <xs:element minOccurs="0" name="categoryId" type="xs:int"/>
+      <xs:element minOccurs="0" name="imageData" type="xs:base64Binary"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="addTileResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="id" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="getTilesByCategoryId">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="categoryId" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="getTilesByCategoryIdResponse">
+    <xs:sequence>
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="tileList" type="tns:tile"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="tile">
+    <xs:sequence>
+      <xs:element name="categoryId" type="xs:int"/>
+      <xs:element name="id" type="xs:int"/>
+      <xs:element minOccurs="0" name="imageData" type="xs:base64Binary"/>
+      <xs:element minOccurs="0" name="name" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="getTileById">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="tileId" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="getTileByIdResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="tile" type="tns:tile"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="updateTileById">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="id" type="xs:int"/>
+      <xs:element minOccurs="0" name="name" type="xs:string"/>
+      <xs:element minOccurs="0" name="categoryId" type="xs:int"/>
+      <xs:element minOccurs="0" name="imageData" type="xs:base64Binary"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="updateTileByIdResponse">
+    <xs:sequence/>
+  </xs:complexType>
+</xs:schema>
+  </wsdl:types>
+  <wsdl:message name="getTilesByCategoryIdResponse">
+    <wsdl:part element="tns:getTilesByCategoryIdResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getTileByIdResponse">
+    <wsdl:part element="tns:getTileByIdResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getTileById">
+    <wsdl:part element="tns:getTileById" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="updateTileByIdResponse">
+    <wsdl:part element="tns:updateTileByIdResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="addTile">
+    <wsdl:part element="tns:addTile" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="addTileResponse">
+    <wsdl:part element="tns:addTileResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getTilesByCategoryId">
+    <wsdl:part element="tns:getTilesByCategoryId" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="updateTileById">
+    <wsdl:part element="tns:updateTileById" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="ITileService">
+    <wsdl:operation name="addTile">
+      <wsdl:input message="tns:addTile" name="addTile">
+    </wsdl:input>
+      <wsdl:output message="tns:addTileResponse" name="addTileResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getTilesByCategoryId">
+      <wsdl:input message="tns:getTilesByCategoryId" name="getTilesByCategoryId">
+    </wsdl:input>
+      <wsdl:output message="tns:getTilesByCategoryIdResponse" name="getTilesByCategoryIdResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getTileById">
+      <wsdl:input message="tns:getTileById" name="getTileById">
+    </wsdl:input>
+      <wsdl:output message="tns:getTileByIdResponse" name="getTileByIdResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="updateTileById">
+      <wsdl:input message="tns:updateTileById" name="updateTileById">
+    </wsdl:input>
+      <wsdl:output message="tns:updateTileByIdResponse" name="updateTileByIdResponse">
+    </wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="TileServiceServiceSoapBinding" type="tns:ITileService">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="addTile">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="addTile">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="addTileResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getTilesByCategoryId">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getTilesByCategoryId">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getTilesByCategoryIdResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getTileById">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getTileById">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getTileByIdResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="updateTileById">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="updateTileById">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="updateTileByIdResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="TileServiceService">
+    <wsdl:port binding="tns:TileServiceServiceSoapBinding" name="TileServicePort">
+      <soap:address location="http://darkshade.homeip.net/rpgEditorServer/tiles"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

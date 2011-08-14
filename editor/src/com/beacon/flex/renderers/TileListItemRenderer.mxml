@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="48" height="66" creationComplete="init()"
+		horizontalScrollPolicy="off" verticalScrollPolicy="off" click="clickTile()" xmlns:ns1="com.beacon.flex.*">
+	<mx:Script>
+		<![CDATA[
+			import mx.graphics.codec.PNGEncoder;
+			import mx.events.StateChangeEvent;
+			import com.beacon.tiles.Tile;
+			import mx.core.Application;
+			
+			public var tile:Tile = data as Tile;
+			
+			private function init():void
+			{
+				addEventListener("dataChange", updateTile);
+				updateTile(null);
+			}
+			
+			private function updateTile(event:Event):void
+			{
+				var bmpData:BitmapData = null;
+				if (data.hasOwnProperty("imageData")) {
+					tileImage.source=data.imageData;
+				} else {
+					// draw broken image
+					trace("No imageData");
+				}
+				//tileImage.data = new Bitmap(bmpData);
+				tileName.text = data.name;
+				tile = data as Tile;
+			}
+
+			private function clickTile():void
+			{
+				Application.application.currentTile=tile;
+			}
+		]]>
+	</mx:Script>
+	<mx:Image top="0" height="48" width="48" id="tileImage" horizontalCenter="0"/>	
+	<mx:Label text="NoName" left="0" right="0" bottom="0" id="tileName"/>
+	
+</mx:Canvas>

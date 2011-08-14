@@ -1,0 +1,398 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Panel xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="400" height="300" title="Encounter!" initialize="init()" creationComplete="setFocus()">
+	<mx:Script>
+		<![CDATA[
+			import com.beacon.rpg.CombatOpponent;
+			import com.beacon.rpg.music.EmbeddedMMLs;
+			import org.si.sion.SiONDriver;
+			import net.homeip.GetZoneMapByIdResultEvent;
+			import net.homeip.ZoneMap;
+			import net.homeip.GetZoneMapById;
+			import net.homeip.ZoneMapServiceService;
+			import net.homeip.mapObjectService.GetMapObjectById;
+			import mx.controls.Alert;
+			import net.homeip.Exit;
+			import net.homeip.GetExitById;
+			import net.homeip.mapObjectService.GetMapObjectByIdResultEvent;
+			import net.homeip.GetExitByIdResultEvent;
+			import net.homeip.mapObjectService.MapObjectServiceService;
+			import net.homeip.ExitServiceService;
+			import net.homeip.GetConversationByIdResponse;
+			import mx.collections.IList;
+			import mx.collections.ArrayCollection;
+			import net.homeip.ConversationAnswer;
+			import net.homeip.ConversationExchange;
+			import net.homeip.GetConversationById;
+			import net.homeip.GetConversationByIdResultEvent;
+			import net.homeip.ConversationServiceService;
+			import net.flashpunk.utils.Key;
+			import com.beacon.rpg.Faction;
+			import mx.core.Application;
+			import net.homeip.NpcCharacter;
+			import net.homeip.GetCharacterById;
+			import net.homeip.GetNPCById;
+			import net.homeip.GetNPCByIdResultEvent;
+			import net.homeip.NPCServiceService;
+			import net.homeip.mapObjectService.MapObject;
+			import com.beacon.rpg.BaseObject;
+			import mx.managers.PopUpManager;
+			import mx.core.UIComponent;
+			
+			private static var dialog:InteractiveDialog;
+			public var myParent:UIComponent;
+			private var mapObject:MapObject = null;
+			private var npc:NpcCharacter = null;
+			public var oldPos:Point = null;
+			
+		    public static const TYPE_STATIONARY_BARRIER:int = 0;
+		    public static const TYPE_STATIONARY_NPC:int = 1;
+		    public static const TYPE_WANDERING_NPC:int = 2;
+		    public static const TYPE_CONTAINER:int = 3;
+		    public static const TYPE_EXIT:int = 4;
+		    
+		    public static const ACTION_TELEPORT:int = 9;
+		    public static const ACTION_COMBAT:int = 10;
+
+			private var npcService:NPCServiceService;
+			private var myInfo:CharacterInfoPanel;
+			private var conversationService:ConversationServiceService;
+			private var exitService:ExitServiceService;
+			private var mapObjectService:MapObjectServiceService;
+			private var zoneService:ZoneMapServiceService;
+			private var choiceList:IList;
+			private var conversation:GetConversationByIdResponse;
+			private var musicDriver:SiONDriver;
+			
+			public static function popUp(parent:UIComponent):InteractiveDialog {
+				dialog = PopUpManager.createPopUp(parent, InteractiveDialog, true) as InteractiveDialog;
+				PopUpManager.centerPopUp(dialog);
+				dialog.myParent = parent;
+				return dialog;
+			}
+
+			public function init():void {
+				npcService = new NPCServiceService();
+				npcService.addgetNPCByIdEventListener(getNPCByIdHandler);
+				
+				conversationService = new ConversationServiceService();
+				conversationService.addgetConversationByIdEventListener(getConversationByIdHandler);
+				
+				exitService = new ExitServiceService();
+				exitService.addgetExitByIdEventListener(exitRetrieved);
+
+				mapObjectService = new MapObjectServiceService();
+				mapObjectService.addgetMapObjectByIdEventListener(mapObjectRetrieved);
+
+				zoneService = new ZoneMapServiceService();
+				zoneService.addgetZoneMapByIdEventListener(zoneRetrieved);
+								
+				musicDriver = Application.application.musicDriver;
+				
+				addEventListener(KeyboardEvent.KEY_DOWN, pressedKey);
+			}
+			
+			public function setMyInfo(infoPanel:CharacterInfoPanel):void {
+				myInfo = infoPanel;
+			}
+			
+			public function setEncounteredObject(encounteredObject:BaseObject):void
+			{
+				var bmp:Bitmap = new Bitmap(encounteredObject.bitmapData);
+				objectImage.addChild(bmp);
+			}			
+			
+			public function setMapObject(mapObject:MapObject):void
+			{
+				this.mapObject = mapObject;
+				if (mapObject.type == TYPE_STATIONARY_NPC || mapObject.type == TYPE_WANDERING_NPC) {
+					var params:GetNPCById = new GetNPCById();
+					params.id = mapObject.referenceId;
+					npcService.getNPCById(params);
+				} else if (mapObject.type == TYPE_EXIT) {
+					if (mapObject.referenceId>0) {
+						// This map object actually takes you somwehere
+						createPortalConversation();
+					} else {
+						// Might as well just let the player pass
+						createPassableConversation();
+					}
+				}
+			}
+			
+			private function getNPCByIdHandler(event:GetNPCByIdResultEvent):void
+			{
+				musicDriver.stop();
+				npc = event.result.npc;
+				description.text+=npc.name;
+				var factionState:int = Faction.getStateOfFactions(myInfo.factionCode, npc.faction);
+				if (factionState==Faction.STATE_ENEMIES) {
+					musicDriver.play(EmbeddedMMLs.enemyEncounter);
+					trace("Combat!");
+				} else if (factionState==Faction.STATE_FRIENDLY) {
+					musicDriver.play(EmbeddedMMLs.friendlyEncounter);
+					trace("Friendly!");
+					if (npc.conversationStart>0) {
+						trace("Opening conversation");
+						var params:GetConversationById = new GetConversationById();
+						params.id = npc.conversationStart;
+						conversationService.getConversationById(params);
+					} else {
+						createNonConversation("Greetings "+myInfo.charName, false);
+					}
+				} else if (factionState==Faction.STATE_NEUTRAL) {
+					musicDriver.play(EmbeddedMMLs.neutralEncounter);
+					trace("Indifferent");
+					if (npc.conversationStart>0) {
+						trace("Opening conversation");
+					} else {
+						createNonConversation(npc.name+" is indifferent to your presence", true);
+					}
+				}
+			}
+
+			private function getConversationByIdHandler(event:GetConversationByIdResultEvent):void
+			{
+				conversation = event.result;
+				displayExchange(conversation.getConversationExchangeAt(0));
+			}
+			
+			private function createNonConversation(openingDialog:String, attackable:Boolean):void
+			{
+				var optionCount:uint = 0;		
+				var exchange:ConversationExchange = new ConversationExchange();
+				exchange.npcDialog = openingDialog;
+				var responses:IList = new ArrayCollection();
+				var response:ConversationAnswer;
+				if (npc.vendorStore>0) {
+					response = new ConversationAnswer();
+					response.answer="Let's talk business";
+					responses.addItem(response);
+				}
+				if (attackable) {
+					response = new ConversationAnswer();
+					response.answer="Attack!";
+					response.action=ACTION_COMBAT;
+					responses.addItem(response);
+				}
+				exchange.responses = responses.toArray();
+				displayExchange(exchange);
+			}
+			
+			private function createPortalConversation():void
+			{
+				description.text+="a portal";
+				var exchange:ConversationExchange = new ConversationExchange();
+				exchange.npcDialog = "This will take you to a different location.  Do you wish to proceed?";
+				var responses:IList = new ArrayCollection();
+				var response:ConversationAnswer = new ConversationAnswer();
+				response.answer = "Proceed";
+				response.action = ACTION_TELEPORT;
+				response.actionValue = mapObject.referenceId;
+				response.nextExchange = -1;
+				responses.addItem(response);
+				exchange.responses = responses.toArray();
+				displayExchange(exchange);
+			}
+
+			private function createPassableConversation():void
+			{
+				description.text+="a passage";
+				var exchange:ConversationExchange = new ConversationExchange();
+				exchange.npcDialog = "You may proceed, or leave the way you came.";
+				var responses:IList = new ArrayCollection();
+				var response:ConversationAnswer = new ConversationAnswer();
+				response.answer = "Proceed";
+				response.action = -1;
+				response.actionValue = -1;
+				response.nextExchange = -1;
+				responses.addItem(response);
+				exchange.responses = responses.toArray();
+				displayExchange(exchange);
+			}	
+					
+			private function displayExchange(exchange:ConversationExchange):void
+			{
+				// Show us what the NPC says
+				var npcDialog:Text = new Text();
+				npcDialog.percentWidth = 100;
+				npcDialog.text = exchange.npcDialog;
+				encounterVBox.removeAllChildren();
+				encounterVBox.addChild(npcDialog);
+
+				// Create a list of options.  0 is always Leave				
+				choiceList = new ArrayCollection();
+				var leaveResponse:ConversationAnswer = new ConversationAnswer();
+				leaveResponse.nextExchange = -1;
+				choiceList.addItem(leaveResponse);
+
+				// Show us the options
+				var optionCount:uint = 0;
+				for each (var response:ConversationAnswer in exchange.responses) {
+					var pcDialog:Text = new Text();
+					pcDialog.percentWidth = 100;
+					pcDialog.text = ++optionCount+") "+response.answer;
+					choiceList.addItem(response);
+					encounterVBox.addChild(pcDialog);
+				}
+				
+				// Show us the Leave option
+				pcDialog = new Text();
+				pcDialog.text = "0) Leave";
+				encounterVBox.addChild(pcDialog);
+			}
+			
+			private function pressedKey(event:KeyboardEvent):void {
+				switch (event.keyCode) {
+					case Key.DIGIT_0:
+						// Shove the player back the way they came
+						Application.application.gameScreen.pos = oldPos;
+						Application.application.gameScreen.redrawScreen();
+						closeDialog();
+						break;
+					case Key.DIGIT_1:
+						selectChoice(1);
+						break;
+					case Key.DIGIT_2:
+						selectChoice(2);
+						break;
+					case Key.DIGIT_3:
+						selectChoice(3);
+						break;
+					case Key.DIGIT_4:
+						selectChoice(4);
+						break;
+					case Key.DIGIT_5:
+						selectChoice(5);
+						break;
+					case Key.DIGIT_6:
+						selectChoice(6);
+						break;
+					case Key.DIGIT_7:
+						selectChoice(7);
+						break;
+					case Key.DIGIT_8:
+						selectChoice(8);
+						break;
+					case Key.DIGIT_9:
+						selectChoice(9);
+						break;
+				}
+			}
+			
+			private function selectChoice(choice:int):void {
+				if (choice<choiceList.length) {
+					var response:ConversationAnswer = choiceList.getItemAt(choice) as ConversationAnswer;
+					if (response.nextExchange>0) {
+						// move to the next exchange
+						displayExchange(getExchangeById(response.nextExchange));
+					} else {
+						if (response.action == ACTION_TELEPORT) {
+							trace("Teleport somewhere");
+							loadExit(response.actionValue);
+							closeDialog();
+						} else if (response.action == ACTION_COMBAT) {
+							trace("Fighting!");
+							startCombat();
+						} else {
+							// close this dialog
+							closeDialog();
+						}
+					}
+				}
+			}
+			
+			private function getExchangeById(id:int):ConversationExchange {
+				var exchange:ConversationExchange = null;
+				for each (var foo:ConversationExchange in conversation) {
+					if (foo.id == id) {
+						exchange = foo;
+						break;
+					}
+				}
+				return exchange;
+			}
+
+			private function loadExit(exitId:Number):void
+			{
+				trace("Loading exit id:"+exitId);
+				var params:GetExitById = new GetExitById();
+				params.id = exitId;
+				exitService.getExitById(params);
+			}			
+			
+			private function exitRetrieved(event:GetExitByIdResultEvent):void
+			{
+				var exit:Exit = event.result.exit;
+				if (exit.requiredObjectId>0) {
+					Alert.show("You require object id "+exit.requiredObjectId+" to pass");
+				} else {
+					trace("Loading mapObject id:"+exit.targetId);
+					var params:GetMapObjectById = new GetMapObjectById();
+					params.id = exit.targetId;
+					mapObjectService.getMapObjectById(params);
+				}
+			}
+			
+			private function mapObjectRetrieved(event:GetMapObjectByIdResultEvent):void
+			{
+				var mo:MapObject = event.result.mapObject;
+				trace("Loading zone id:"+mo.zoneId);
+				myInfo.position=new Point(mo.x*48,mo.y*48);
+				myInfo.zoneId=mo.zoneId;
+				var params:GetZoneMapById = new GetZoneMapById();
+				params.id = mo.zoneId;
+				zoneService.getZoneMapById(params);
+			}
+			
+			private function zoneRetrieved(event:GetZoneMapByIdResultEvent):void
+			{
+				var zone:ZoneMap = event.result.zoneMap;
+				trace("Moving to zone:"+zone.zoneName);
+				myInfo.location=zone.zoneName;
+				Application.application.gameScreen.changeRooms();
+				closeDialog();
+			}
+
+			private function startCombat():void
+			{
+				// Remove this dialog window
+				removeEventListener(KeyboardEvent.KEY_DOWN, pressedKey);
+				PopUpManager.removePopUp(dialog);
+				// Open the combat window
+				var combatPanel:CombatPanel = CombatPanel.popUp(myParent);
+				combatPanel.setMyInfo(myInfo);
+				var opponent:CombatOpponent = new CombatOpponent();
+				opponent.setNPC(npc);
+				opponent.setImage(objectImage);
+				combatPanel.addOpponent(opponent);
+				// NOW we can clear old values
+				npcService = null;
+				mapObject = null;
+				npc = null;
+				myParent = null;
+				dialog = null;
+				// But we don't want to set the focus back to the game screen
+				// or start processing frames there so leave it frozen
+			}
+			
+			public function closeDialog():void {
+				removeEventListener(KeyboardEvent.KEY_DOWN, pressedKey);
+				npcService = null;
+				mapObject = null;
+				npc = null;
+				PopUpManager.removePopUp(dialog);
+				//myParent.setFocus();
+				Application.application.gameScreen.setFocus();
+				myParent = null;
+				dialog = null;
+				Application.application.gameScreen.frozen=false;
+			}	
+		]]>
+	</mx:Script>
+
+	<mx:Image left="10" top="10" width="48" height="48" id="objectImage" autoLoad="true"/>
+	<mx:Text text="You run into...." left="66" top="10" right="10" height="48" id="description"/>
+	<mx:VBox left="10" right="10" top="66" bottom="10" id="encounterVBox" horizontalScrollPolicy="off">
+	</mx:VBox>
+	
+</mx:Panel>

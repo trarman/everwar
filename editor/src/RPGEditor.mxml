@@ -1,0 +1,658 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" creationComplete="init()">
+	<mx:Script>
+		<![CDATA[
+			import com.beacon.flex.MapExitsWindow;
+			import mx.utils.Base64Decoder;
+			import mx.utils.Base64Encoder;
+			import org.si.sion.SiONDriver;
+			import org.si.sion.SiONData;
+			import com.beacon.flex.MusicEditorWindow;
+			import net.homeip.GetMapObjectsForZoneId;
+			import net.homeip.MapObjectServiceService;
+			import net.homeip.GetMapObjectsForZoneIdResultEvent;
+			import com.beacon.flex.ProgressWindow;
+			import com.beacon.tiles.GetTileById;
+			import com.beacon.tiles.GetTileByIdResultEvent;
+			import mx.rpc.events.FaultEvent;
+			import com.beacon.flex.events.UpdateTileEvent;
+			import com.beacon.flex.UpdateTileDialog;
+			import com.beacon.tiles.UpdateTileByIdResultEvent;
+			import com.beacon.tiles.UpdateTileById;
+			import com.beacon.flex.events.MoveTileEvent;
+			import com.beacon.flex.MoveTileDialog;
+			import mx.graphics.codec.PNGEncoder;
+			import com.beacon.maps.GetZoneMapByIdResultEvent;
+			import com.beacon.maps.GetZoneMapById;
+			import com.beacon.maps.UpdateZoneMapByIdResultEvent;
+			import com.beacon.maps.UpdateZoneMapById;
+			import com.beacon.maps.AddZoneMapResultEvent;
+			import com.beacon.maps.AddZoneMap;
+			import com.beacon.maps.ZoneMap;
+			import com.beacon.flex.renderers.TileListItemRenderer;
+			import com.beacon.flex.renderers.ZoneGrid;
+			import com.beacon.flex.events.CreateZoneEvent;
+			import com.beacon.flex.CreateZoneDialog;
+			import com.beacon.flex.events.ZoneSelectedEvent;
+			import com.beacon.flex.ZoneSelectionDialog;
+			import com.beacon.maps.ZoneMapListItem;
+			import com.beacon.maps.GetZones;
+			import com.beacon.maps.GetZonesResultEvent;
+			import com.beacon.maps.ZoneMapServiceService;
+			import mx.core.BitmapAsset;
+			import com.beacon.tiles.Tile;
+			import com.beacon.tiles.AddTileResultEvent;
+			import com.beacon.tiles.AddTile;
+			import com.beacon.flex.events.AddTileEvent;
+			import com.beacon.flex.AddTileDialog;
+			import com.beacon.tiles.GetTilesByCategoryId;
+			import com.beacon.tiles.GetTilesByCategoryIdResultEvent;
+			import com.beacon.tiles.TileServiceService;
+			import com.beacon.categories.Category;
+			import com.beacon.categories.AddCategoryResultEvent;
+			import com.beacon.categories.AddCategory;
+			import com.beacon.flex.events.AddCategoryEvent;
+			import com.beacon.flex.AddCategoryDialog;
+			import com.beacon.categories.GetCategoriesResultEvent;
+			import com.beacon.categories.CategoryServiceService;
+			import com.beacon.categories.GetCategories;
+			import flash.net.navigateToURL;
+			import mx.controls.Alert;
+			import mx.events.MenuEvent;
+
+			[Embed(source="assets/images/ERASER.JPG")]
+			public var eraserClass:Class;
+
+			public var musicDriver:SiONDriver;
+						
+			public var currentLayer:String = ZoneGrid.SURFACE_LAYER;
+			[Bindable]
+			public var currentTile:Tile = null;
+			public var currentCategory:String = null;
+			[Bindable]
+			public var currentZone:String = null;
+			public var backgroundMusic:String = null;
+
+			public static const MODE_DRAW:String = "Draw";
+			public static const MODE_FILL:String = "Fill";
+			public static const MODE_SELECT:String = "Select";
+			public var currentMode:String = MODE_DRAW;
+			
+			private var categoryService:CategoryServiceService;
+			private var tileService:TileServiceService;
+			private var zoneService:ZoneMapServiceService;
+			private var mapObjectService:MapObjectServiceService;
+			
+			private var progressWindow:ProgressWindow=null;
+			
+			private function init():void
+			{
+				menubar.addEventListener(MenuEvent.ITEM_CLICK, menuItemHandler);
+				categoryService = new CategoryServiceService();
+				categoryService.addgetCategoriesEventListener(getCategoriesResultHandler);
+				categoryService.addaddCategoryEventListener(addCategoryResultHandler);
+				categoryService.getCategories(new GetCategories());
+				
+				tileService = new TileServiceService();
+				tileService.addgetTilesByCategoryIdEventListener(tilesRetrieved);			
+				tileService.addaddTileEventListener(tileAdded);	
+				tileService.addupdateTileByIdEventListener(tileUpdatedHandler);
+				tileService.addgetTileByIdEventListener(fetchTileResultHandler);
+				
+				zoneService = new ZoneMapServiceService();
+				zoneService.addgetZonesEventListener(getZonesHandler);
+				zoneService.addaddZoneMapEventListener(addZoneHandler);
+				zoneService.addupdateZoneMapByIdEventListener(updateZoneHandler);
+				zoneService.addgetZoneMapByIdEventListener(getZoneByIdHandler);
+				zoneService.addZoneMapServiceServiceFaultEventListener(zoneServiceFaultHandler);
+				
+				mapObjectService = new MapObjectServiceService();
+				mapObjectService.addgetMapObjectsForZoneIdEventListener(getMapObjectsByZoneIdHandler);
+				
+				musicDriver = new SiONDriver();
+			}
+			
+			private function menuItemHandler(event:MenuEvent):void
+			{
+				if (event.label=="Exit") {
+					navigateToURL(new URLRequest('http://darkshade.homeip.net/'),'_self');
+				} else if (event.label=="Surface") {
+					currentLayer=ZoneGrid.SURFACE_LAYER;
+					objectInfoTextArea.text="The Surface Layer is what characters and monsters walk on.  It is just for visual effect."
+				} else if (event.label=="Interactive") {
+					currentLayer=ZoneGrid.INTERACTIVE_LAYER;
+					objectInfoTextArea.text="The Interactive Layer sits on top of the Surface Layer, and contains anything characters or monsters could interact with.  For example: Doors, Chests, Invisible Barricades";
+				} else if (event.label=="Upper") {
+					currentLayer=ZoneGrid.UPPER_LAYER;
+					objectInfoTextArea.text="The Upper Layer floats above everything else.  It is just for visual effect."
+				} else if (event.label=="Open") {
+					objectInfoTextArea.text="Retrieving list of maps...";
+					getZoneList();
+				} else if (event.label=="New") {
+					objectInfoTextArea.text="Create new map";
+					openCreateZoneDialog();
+				} else if (event.label=="Only Surface") {
+					objectInfoTextArea.text="Viewing ONLY Surface Layer";
+					changeView(ZoneGrid.SURFACE_LAYER);
+				} else if (event.label=="Only Interactive") {
+					objectInfoTextArea.text="Viewing ONLY Interactive Layer";
+					changeView(ZoneGrid.INTERACTIVE_LAYER);
+				} else if (event.label=="Only Upper") {
+					objectInfoTextArea.text="Viewing ONLY Upper Layer";
+					changeView(ZoneGrid.UPPER_LAYER);
+				} else if (event.label=="All") {
+					objectInfoTextArea.text="Viewing all layers";
+					changeView(null);
+				} else if (event.label=="Save") {
+					objectInfoTextArea.text="Saving Zone...";
+					saveZoneMap();
+				} else if (event.label=="Move") {
+					objectInfoTextArea.text="Moving Tile...";
+					openMoveTileDialog();
+				} else if (event.label=="Update") {
+					objectInfoTextArea.text="Updating Tile...";
+					openUpdateTileDialog();
+				} else if (event.label=="Export") {
+					exportMap();
+				} else if (event.label=="About") {
+					Alert.show("Everwar Editor v0.4");
+				} else if (event.label=="Edit") {
+					objectInfoTextArea.text="Editing Background Music";
+					MusicEditorWindow.popup(this);
+				} else if (event.label=="Link Exits") {
+					objectInfoTextArea.text="Linking Exits from this map to another map";
+					var zoneGrid:ZoneGrid = mapCanvas.getChildAt(0) as ZoneGrid;
+					var exitDialog:MapExitsWindow = MapExitsWindow.popUp(this);
+					exitDialog.setZoneId(zoneGrid.getZoneMap().zoneId);
+				}
+				renderMap();
+			}
+
+			private function saveZoneMap():void
+			{
+				if (mapCanvas.getChildren().length>0) {
+					var zoneGrid:ZoneGrid = mapCanvas.getChildAt(0) as ZoneGrid;
+					var zoneMap:ZoneMap = zoneGrid.getZoneMap();
+					var encoder:Base64Encoder = new Base64Encoder();
+					encoder.encode(backgroundMusic);
+					if (zoneMap.zoneId==-1) {
+						var saveZone:AddZoneMap = new AddZoneMap();
+						saveZone.name=zoneMap.zoneName;
+						saveZone.width=zoneMap.width;
+						saveZone.height=zoneMap.height;
+						saveZone.mapData=zoneMap.mapData;
+						saveZone.music=encoder.flush();
+						zoneService.addZoneMap(saveZone);
+					} else {
+						var updateZone:UpdateZoneMapById = new UpdateZoneMapById();
+						updateZone.id=zoneMap.zoneId;
+						updateZone.name=zoneMap.zoneName;
+						updateZone.width=zoneMap.width;
+						updateZone.height=zoneMap.height;
+						updateZone.mapData=zoneMap.mapData;
+						updateZone.music=encoder.flush();
+						zoneService.updateZoneMapById(updateZone);
+					}
+				} else {
+					objectInfoTextArea.text="You must have a map currently open before you can save it";
+				}
+			}
+			
+			private function zoneServiceFaultHandler(event:FaultEvent):void
+			{
+				Alert.show("Error!\n"+event.message);
+			}
+			
+			private function addZoneHandler(event:AddZoneMapResultEvent):void
+			{
+				Alert.show("Saved!");
+				var zoneGrid:ZoneGrid = mapCanvas.getChildAt(0) as ZoneGrid;
+				zoneGrid.getZoneMap().zoneId=event.result.id;
+				objectInfoTextArea.text="New map saved to server!";
+			}
+
+			private function updateZoneHandler(event:UpdateZoneMapByIdResultEvent):void
+			{
+				Alert.show("Saved!");
+				objectInfoTextArea.text="Server map updated";
+			}			
+			
+			private function changeView(layer:String):void
+			{
+				var zoneGrid:ZoneGrid = mapCanvas.getChildAt(0) as ZoneGrid;
+				if (zoneGrid!=null) {
+					if (layer==null) {
+						zoneGrid.viewAllLayers();				
+					} else {
+						zoneGrid.viewOnlyLayer(layer);
+						currentLayer=layer;
+					}
+				}
+			}
+			
+			private function renderMap():void
+			{
+				editLayerLabel.text="Editing: "+currentLayer;
+			}			
+			
+			private function exportMap():void
+			{
+				var zoneGrid:ZoneGrid = mapCanvas.getChildAt(0) as ZoneGrid;
+				if (zoneGrid!=null) {
+					zoneGrid.exportMap();				
+				}				
+			}
+			
+			private function getZoneList():void
+			{
+				zoneService.getZones(new GetZones());
+			}
+
+			private function getZonesHandler(event:GetZonesResultEvent):void
+			{
+				trace("getZones result:"+event.result.length);
+				if (event.result.length>0) {
+					for each (var item:ZoneMapListItem in event.result) {
+						objectInfoTextArea.text+="\n"+item.name;
+					}
+					var dialog:ZoneSelectionDialog = ZoneSelectionDialog.popup(this);
+					dialog.addEventListener(ZoneSelectedEvent.CANCEL, cancelOpenZone);
+					dialog.addEventListener(ZoneSelectedEvent.OPEN, openZone);
+					dialog.zoneMapList.dataProvider=event.result;
+				} else {
+					objectInfoTextArea.text+="\nNo zones available";
+				}
+				
+			}	
+					
+			private function cancelOpenZone(event:ZoneSelectedEvent):void
+			{
+				var dialog:ZoneSelectionDialog = event.dialog;
+				dialog.removeEventListener(ZoneSelectedEvent.CANCEL,cancelOpenZone);
+				dialog.removeEventListener(ZoneSelectedEvent.OPEN,openZone);
+				dialog.closeDialog();				
+			}
+			
+			private function openZone(event:ZoneSelectedEvent):void
+			{
+				trace("Open Zone ("+event.zoneId+") "+event.zoneName);
+				var dialog:ZoneSelectionDialog = event.dialog;
+				dialog.removeEventListener(ZoneSelectedEvent.CANCEL,cancelOpenZone);
+				dialog.removeEventListener(ZoneSelectedEvent.OPEN,openZone);
+				dialog.closeDialog();		
+				
+				objectInfoTextArea.text="Loading "+event.zoneName;
+				var loadZone:GetZoneMapById = new GetZoneMapById();
+				loadZone.id=event.zoneId;
+				callLater(zoneService.getZoneMapById,[loadZone]);	
+				
+				progressWindow = ProgressWindow.popUp(this);
+				progressWindow.description.text="Retrieving "+event.zoneName;	
+			}
+
+			private function openCreateZoneDialog():void
+			{
+				var dialog:CreateZoneDialog = CreateZoneDialog.popUp(this);
+				dialog.addEventListener(CreateZoneEvent.CANCEL, cancelCreateZone);
+				dialog.addEventListener(CreateZoneEvent.CREATE, createZone);
+			}	
+					
+			private function openMoveTileDialog():void
+			{
+				if (currentTile==null) {
+					objectInfoTextArea.text="You must select a tile before you can move it!";
+				} else if (currentTile.name=="_ERASER_" && currentTile.id==-1) {
+					objectInfoTextArea.text="You can not move the Eraser!";
+				} else {
+					var dialog:MoveTileDialog = MoveTileDialog.popUp(this);
+					dialog.addEventListener(MoveTileEvent.CANCEL, cancelMoveTile);
+					dialog.addEventListener(MoveTileEvent.MOVE, moveTile);
+					dialog.tileImage.source=currentTile.imageData;
+					dialog.categoryTree.dataProvider=tileTree.dataProvider;
+				}
+			}
+
+			private function openUpdateTileDialog():void
+			{
+				if (currentTile==null) {
+					objectInfoTextArea.text="You must select a tile before you can update it";
+				} else if (currentTile.name=="_ERASER_" && currentTile.id==-1) {
+					objectInfoTextArea.text="You can not update the Eraser!";
+				} else {
+					var dialog:UpdateTileDialog = UpdateTileDialog.popUp(this);
+					dialog.addEventListener(UpdateTileEvent.CANCEL, cancelUpdateTile);
+					dialog.addEventListener(UpdateTileEvent.UPDATE, updateTile);
+					dialog.tileId=currentTile.id;
+					dialog.categoryId=currentTile.categoryId;
+					dialog.nameField.text=currentTile.name;
+					dialog.previewImage.source=currentTile.imageData;
+					dialog.parentCategoryLabel.text=currentCategory;
+				}				
+			}	
+			
+			private function cancelUpdateTile(event:UpdateTileEvent):void
+			{
+				var dialog:UpdateTileDialog = event.dialog;
+				dialog.removeEventListener(UpdateTileEvent.CANCEL, cancelUpdateTile);
+				dialog.removeEventListener(UpdateTileEvent.UPDATE, updateTile);
+				dialog.closeDialog();				
+			}
+					
+			private function updateTile(event:UpdateTileEvent):void
+			{
+				objectInfoTextArea.text="Updating "+currentTile.name+"...";
+				var tileUpdate:UpdateTileById = new UpdateTileById();
+				tileUpdate.id = currentTile.id;
+				tileUpdate.name = event.name;
+				tileUpdate.imageData = event.imageData;
+				tileUpdate.categoryId = event.categoryId;
+				tileService.updateTileById(tileUpdate);
+
+				cancelUpdateTile(event);
+			}
+			
+			private function cancelMoveTile(event:MoveTileEvent):void
+			{
+				var dialog:MoveTileDialog = event.dialog;
+				dialog.removeEventListener(MoveTileEvent.CANCEL, cancelMoveTile);
+				dialog.removeEventListener(MoveTileEvent.MOVE, moveTile);
+				dialog.closeDialog();
+			}
+			
+			private function moveTile(event:MoveTileEvent):void
+			{
+				objectInfoTextArea.text="Moving "+currentTile.name+" to category "+event.categoryName;
+				var tileUpdate:UpdateTileById = new UpdateTileById();
+				tileUpdate.id = currentTile.id;
+				tileUpdate.name = currentTile.name;
+				tileUpdate.imageData = currentTile.imageData;
+				tileUpdate.categoryId = event.categoryId;
+				tileService.updateTileById(tileUpdate);
+				
+				cancelMoveTile(event);				
+			}
+
+			private function tileUpdatedHandler(event:UpdateTileByIdResultEvent):void
+			{
+				objectInfoTextArea.text="Tile updated";
+				// refetch tiles by category
+				categorySelected();
+			}			
+
+			private function cancelCreateZone(event:CreateZoneEvent):void
+			{
+				var dialog:CreateZoneDialog = event.dialog;
+				dialog.removeEventListener(CreateZoneEvent.CANCEL, cancelCreateZone);
+				dialog.removeEventListener(CreateZoneEvent.CREATE, createZone);
+				dialog.closeDialog();
+			}
+			
+			private function createZone(event:CreateZoneEvent):void
+			{
+				trace("Creating new zone:"+event.zoneName);
+				objectInfoTextArea.text="Creating new Zone called "+event.zoneName+" of size "+event.zoneWidth+"x"+event.zoneHeight;
+				cancelCreateZone(event);
+				mapCanvas.removeAllChildren();
+				var zoneGrid:ZoneGrid = new ZoneGrid();
+				callLater(zoneGrid.createZoneMap,[event.zoneName, event.zoneWidth, event.zoneHeight]);
+				mapCanvas.addChild(zoneGrid);
+				currentZone=zoneGrid.name;
+			}
+			
+			private function getZoneByIdHandler(event:GetZoneMapByIdResultEvent):void
+			{
+				objectInfoTextArea.text="Rendering map of size "+event.result.zoneMap.width+"x"+event.result.zoneMap.height;
+				mapCanvas.removeAllChildren();
+				var zoneGrid:ZoneGrid = new ZoneGrid();
+				callLater(zoneGrid.loadZoneMap,[event.result.zoneMap]);
+				mapCanvas.addChild(zoneGrid);
+				currentZone=zoneGrid.name;
+				zoneGrid.tileImageData=[];
+				var decoder:Base64Decoder = new Base64Decoder();
+				try {
+					decoder.decode(event.result.zoneMap.music);
+					backgroundMusic=decoder.toByteArray().toString();
+				} catch (e:Error) {
+					trace("Error decoding music");
+				}
+				progressWindow.description.text="Compiling...";
+			}
+			
+			public function getMapObjectsForZoneId(id:Number):void
+			{
+				var params:GetMapObjectsForZoneId = new GetMapObjectsForZoneId();
+				params.zoneId = id;
+				mapObjectService.getMapObjectsForZoneId(params);
+			}
+			
+			private function getMapObjectsByZoneIdHandler(event:GetMapObjectsForZoneIdResultEvent):void
+			{
+				var zoneGrid:ZoneGrid = mapCanvas.getChildAt(0) as ZoneGrid;
+				callLater(zoneGrid.loadMapObjects,[event.result]);
+				progressWindow.description.text="Examining Map Objects...";				
+			}
+			
+			public function fetchTileImageData(currentIndex:int):void
+			{
+				var zoneGrid:ZoneGrid = mapCanvas.getChildAt(0) as ZoneGrid;
+				var tileToGet:GetTileById = new GetTileById();
+				tileToGet.tileId=zoneGrid.tileIndex[currentIndex];
+				progressWindow.description.text="Fetching tile id:"+tileToGet.tileId;
+				//trace("Fetching tile id:"+tileToGet.tileId);
+				callLater(tileService.getTileById,[tileToGet]);
+				progressWindow.progressBar.setProgress(currentIndex, zoneGrid.tileIndex.length);
+			}
+			
+			private function fetchTileResultHandler(event:GetTileByIdResultEvent):void
+			{
+				var zoneGrid:ZoneGrid = mapCanvas.getChildAt(0) as ZoneGrid;
+				var tile:Tile = event.result.tile;
+				if (tile!=null) {
+					zoneGrid.tileImageData.push(tile.imageData);
+					var currentIndex:int = zoneGrid.tileIndex.indexOf(tile.id);
+					if (currentIndex>=0 && currentIndex<zoneGrid.tileIndex.length-1) {
+						fetchTileImageData(currentIndex+1);
+					} else {
+						zoneGrid.loadTileImageData();
+						callLater(progressWindow.closeDialog,[]);
+					}
+				} else {
+					trace("Null tile retrieved!");
+				}
+			}
+			
+			private function getCategoriesResultHandler(event:GetCategoriesResultEvent):void
+			{
+				trace("Categories result:"+event.result.length);
+				var treeData:XML = null;
+				for each (var category:Category in event.result) {
+					var node:XML = <category id={category.id} parentId={category.parentId} name={category.name}/>
+					if (category.parentId==0) {
+						treeData = node;
+					} else {
+						var subTree:XMLList = treeData.(attribute("id")==category.parentId);
+						if (subTree==null || subTree.length()==0) {
+							subTree = treeData..category.(attribute("id")==category.parentId);
+						}
+						if (subTree!=null && subTree.length()>0) {
+							subTree[0].appendChild(node);
+						}
+					}
+				}
+				tileTree.dataProvider=treeData;
+			}
+			
+			private function addCategoryButtonPressed():void
+			{
+				if (tileTree.selectedItem==null && tileTree.dataProvider!=null) {
+					objectInfoTextArea.text="You may only create a new root category if the list is empty";					
+				} else {
+					var dialog:AddCategoryDialog = AddCategoryDialog.popUp(this);
+					dialog.addEventListener(AddCategoryEvent.CANCEL, cancelAddCategory);
+					dialog.addEventListener(AddCategoryEvent.OK, okAddCategory);
+					if (tileTree.selectedItem!=null) {
+						dialog.parentId=tileTree.selectedItem.@id;
+						dialog.parentCategoryLabel.text=tileTree.selectedItem.@name;
+					}
+				}
+			}
+			
+			private function cancelAddCategory(event:AddCategoryEvent):void
+			{
+				var dialog:AddCategoryDialog = event.dialog;
+				dialog.removeEventListener(AddCategoryEvent.CANCEL,cancelAddCategory);
+				dialog.removeEventListener(AddCategoryEvent.OK,okAddCategory);
+				dialog.closeDialog();
+			}
+			
+			private function okAddCategory(event:AddCategoryEvent):void
+			{
+				var addCategory:AddCategory = new AddCategory();
+				addCategory.name=event.categoryName;
+				addCategory.parentId=event.parentId;
+				categoryService.addCategory(addCategory);
+				
+				var dialog:AddCategoryDialog = event.dialog;
+				dialog.removeEventListener(AddCategoryEvent.CANCEL,cancelAddCategory);
+				dialog.removeEventListener(AddCategoryEvent.OK,okAddCategory);
+				dialog.closeDialog();
+			}
+			
+			private function addCategoryResultHandler(event:AddCategoryResultEvent):void
+			{
+				objectInfoTextArea.text="Added category, id="+event.result.id;
+				categoryService.getCategories(new GetCategories());
+			}
+			
+			private function categorySelected():void
+			{
+				if (tileTree.selectedItem!=null) {
+					var getTilesParams:GetTilesByCategoryId = new GetTilesByCategoryId();
+					getTilesParams.categoryId=tileTree.selectedItem.@id;
+					tileService.getTilesByCategoryId(getTilesParams);
+					currentCategory=tileTree.selectedItem.@name;
+				}
+			}
+			
+			private function tilesRetrieved(event:GetTilesByCategoryIdResultEvent):void
+			{
+				trace("Retrieved "+event.result.length+" Tiles");
+				// Insert ERASER Tile
+				var eraserbmp:Bitmap = new eraserClass();
+				var pngEnc:PNGEncoder = new PNGEncoder();
+				var eraser:Tile = new Tile();
+				eraser.id=-1;
+				eraser.categoryId=-1;
+				eraser.name="_ERASER_";
+				eraser.imageData=pngEnc.encode(eraserbmp.bitmapData);
+				if (event.result.length>0) {
+					event.result.addItemAt(eraser,0);
+				} else {
+					event.result.addItem(eraser);
+				}
+				tileList.dataProvider=event.result;
+				currentTile=null;
+			}
+			
+			private function addTileButtonPressed():void
+			{
+				var dialog:AddTileDialog = AddTileDialog.popUp(this);
+				dialog.addEventListener(AddTileEvent.CANCEL, cancelAddTile);
+				dialog.addEventListener(AddTileEvent.ADD, okAddTile);
+				if (tileTree.selectedItem!=null) {
+					dialog.categoryId=tileTree.selectedItem.@id;
+					dialog.parentCategoryLabel.text=tileTree.selectedItem.@name;
+				}				
+			}
+			
+			private function cancelAddTile(event:AddTileEvent):void
+			{
+				var dialog:AddTileDialog = event.dialog;
+				dialog.removeEventListener(AddTileEvent.CANCEL,cancelAddTile);
+				dialog.removeEventListener(AddTileEvent.ADD,okAddTile);
+				dialog.closeDialog();				
+			}
+			
+			private function okAddTile(event:AddTileEvent):void
+			{
+				var addTileParams:AddTile = new AddTile();
+				addTileParams.categoryId=event.categoryId;
+				addTileParams.name=event.name;
+				addTileParams.imageData=event.imageData;
+				tileService.addTile(addTileParams);
+
+				var dialog:AddTileDialog = event.dialog;
+				dialog.removeEventListener(AddTileEvent.CANCEL,cancelAddTile);
+				dialog.removeEventListener(AddTileEvent.ADD,okAddTile);
+				dialog.closeDialog();								
+			}
+			
+			private function tileAdded(event:AddTileResultEvent):void
+			{
+				objectInfoTextArea.text="Added new tile, id="+event.result.id;
+				// Fetch the updated tile list
+				categorySelected();
+			}
+			
+			private function modeButtonClicked(mode:String):void
+			{
+				currentMode=mode;
+				objectInfoTextArea.text="Changed mode to "+currentMode;
+				pencilButton.selected=(currentMode==MODE_DRAW);
+				paintButton.selected=(currentMode==MODE_FILL);
+				selectButton.selected=(currentMode==MODE_SELECT);						
+			}
+			
+		]]>
+	</mx:Script>
+	<mx:MenuBar id="menubar" right="0" left="0" top="0" labelField="@label" height="20">
+		<mx:XMLList>
+            <menuitem label="File">
+                <menuitem label="New"/>
+                <menuitem label="Open"/>
+                <menuitem label="Save" enabled="{mapCanvas.getChildren().length>0}"/>
+                <separator enabled="false"/>
+                <menuitem label="Link Exits" enabled="{mapCanvas.getChildren().length>0}"/>
+                <separator enabled="false"/>
+                <menuitem label="Import" enabled="false"/>
+                <menuitem label="Export" enabled="{mapCanvas.getChildren().length>0}"/>
+                <separator enabled="false"/>
+                <menuitem label="Exit"/>
+            </menuitem>
+            <menuitem label="Edit Layer">
+            	<menuitem label="Surface"/>
+            	<menuitem label="Interactive"/>
+            	<menuitem label="Upper"/>
+            </menuitem>
+            <menuitem label="View Layers">
+            	<menuitem label="Only Surface" enabled="{mapCanvas.getChildren().length>0}"/>
+            	<menuitem label="Only Interactive" enabled="{mapCanvas.getChildren().length>0}"/>
+            	<menuitem label="Only Upper" enabled="{mapCanvas.getChildren().length>0}"/>
+            	<menuitem label="All" enabled="{mapCanvas.getChildren().length>0}"/>
+            </menuitem>
+            <menuitem label="Music">
+            	<menuitem label="Edit"/>
+            </menuitem>
+            <menuitem label="Tile">
+            	<menuitem label="Move" enabled="{currentTile!=null}"/>
+            	<menuitem label="Update" enabled="{currentTile!=null}"/>
+            </menuitem>
+            <menuitem label="Help">
+            	<menuitem label="About"/>
+            </menuitem>
+        </mx:XMLList>
+	</mx:MenuBar>
+	<mx:Canvas id="mapCanvas" left="10" top="30" right="210" bottom="90" horizontalScrollPolicy="auto" verticalScrollPolicy="auto">
+	</mx:Canvas>
+	<mx:TextArea height="72" id="objectInfoTextArea" editable="false" right="10" left="10" bottom="10"/>
+	<mx:Label text="Editing Layer: none" top="58" id="editLayerLabel" right="10" width="192"/>
+	<mx:Tree width="192" id="tileTree" right="10" top="84" labelField="@name" height="170" click="categorySelected()"></mx:Tree>
+	<mx:Button label="Add Tile" id="addTileButton" right="10" top="262" height="22" enabled="{tileTree.selectedItem!=null}" click="addTileButtonPressed()"/>
+	<mx:Button label="Add Category" id="addCategoryButton" right="98" click="addCategoryButtonPressed()" top="262" height="22"/>
+	<mx:TileList width="192" right="10" top="292" bottom="90" id="tileList" direction="horizontal" allowMultipleSelection="false"
+		itemRenderer="com.beacon.flex.renderers.TileListItemRenderer" maxColumns="3" columnWidth="58" 
+		verticalScrollPolicy="on" horizontalScrollPolicy="off"></mx:TileList>
+	<mx:Button right="10" top="28" icon="@Embed(source='assets/images/select.png')" id="selectButton" click="modeButtonClicked(MODE_SELECT)"/>
+	<mx:Button right="58" top="28" icon="@Embed(source='assets/images/paint.png')" id="paintButton" click="modeButtonClicked(MODE_FILL)"/>
+	<mx:Button right="106" top="28" id="pencilButton" icon="@Embed(source='assets/images/pencil.png')" selected="true" click="modeButtonClicked(MODE_DRAW)"/>
+</mx:Application>

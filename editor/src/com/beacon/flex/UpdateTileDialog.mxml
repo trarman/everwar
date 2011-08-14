@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="350" height="224" title="Update Tile" creationComplete="init()">
+
+	<mx:Script>
+		<![CDATA[
+			import mx.utils.Base64Decoder;
+			import mx.graphics.ImageSnapshot;
+			import mx.graphics.codec.PNGEncoder;
+			import com.beacon.flex.events.UpdateTileEvent;
+			import com.beacon.flex.events.AddCategoryEvent;
+			import mx.managers.PopUpManager;
+			import mx.core.UIComponent;
+			
+			private static var dialog:UpdateTileDialog=null;
+			public var categoryId:int;
+			public var tileId:int;
+			
+            private var  fileTypes:FileFilter = new FileFilter("Image", "*.jpg;*.jpeg;*;*.gif;*.png;*");
+ 			[Bindable]
+            private var loadFileRef:FileReference = new FileReference();
+ 			
+ 			public static function popUp(parent:UIComponent):UpdateTileDialog
+			{
+				dialog = PopUpManager.createPopUp(parent,UpdateTileDialog,true) as UpdateTileDialog;
+				PopUpManager.centerPopUp(dialog);
+  				return dialog;
+			}
+
+			private function init():void
+			{
+	            loadFileRef.addEventListener(Event.SELECT, fileSelected);
+                loadFileRef.addEventListener(Event.COMPLETE, loadCompleted);				
+			}	
+					
+			private function cancelPressed():void
+			{
+				var myEvent:UpdateTileEvent = new UpdateTileEvent(UpdateTileEvent.CANCEL);
+				myEvent.dialog=dialog;
+				dispatchEvent(myEvent);
+			}			
+			
+			private function okPressed():void
+			{
+				var myEvent:UpdateTileEvent = new UpdateTileEvent(UpdateTileEvent.UPDATE);
+				myEvent.tileId=tileId;
+				myEvent.categoryId=categoryId;
+				myEvent.dialog=dialog;
+				myEvent.name=nameField.text;
+				myEvent.imageData=encodeImage();
+				dispatchEvent(myEvent);
+			}
+			
+			private function browsePressed():void
+			{
+				loadFileRef.browse([fileTypes]);
+			}
+			
+			private function savePressed():void
+			{
+				var saveFile:FileReference = new FileReference();
+				saveFile.save(encodeImage(),nameField.text+".png");
+			}
+			
+			public function closeDialog():void
+			{
+				PopUpManager.removePopUp(dialog);
+			}
+			
+            // called after a file has been selected within the file system browser
+            private function fileSelected(evt:Event):void {
+                //trace("file size: " + numberFormatter.format(loadFileRef.size) +" bytes");
+                trace("file name: " + loadFileRef.name);
+                loadFileRef.load();
+            }
+
+            private function  loadCompleted(evt:Event):void {
+                previewImage.source = loadFileRef.data;
+            }
+            			
+			private function encodeImage():ByteArray 
+            {
+             	var pngEnc:PNGEncoder = new PNGEncoder();
+				var byteArr:ByteArray = null;
+
+              	if(previewImage.content !=null)
+              	{
+               		byteArr=pngEnc.encode(ImageSnapshot.captureBitmapData(previewImage));
+                }
+
+                return byteArr;
+            }
+		]]>
+	</mx:Script>
+
+	<mx:Button label="Cancel" id="cancelButton" right="10" bottom="10" click="cancelPressed()"/>
+	<mx:Button label="Ok" right="81" bottom="10" id="okButton" enabled="{nameField.text.length>0}" click="okPressed()"/>
+	<mx:Text text="Please choose a name and image for the new tile you wish to add.  Note, tiles can not be deleted!" left="10" top="10" right="10" bottom="120"/>
+	<mx:Label text="Tile Name:" left="44" bottom="68"/>
+	<mx:TextInput left="118" bottom="66" right="10" id="nameField" maxChars="100"/>
+	<mx:Label text="Category:" left="50" bottom="94"/>
+	<mx:Label text="None" id="parentCategoryLabel" left="118" bottom="94" right="10"/>
+	<mx:Label text="Image:" left="63" bottom="42"/>
+	<mx:Image width="48" height="48" left="118" bottom="10" id="previewImage"/>
+	<mx:Button label="Browse" id="browseButton" left="42" bottom="12" click="browsePressed()"/>
+	<mx:Button label="Save to Disk" right="10" bottom="40" id="saveButton" click="savePressed()"/>
+	
+</mx:TitleWindow>

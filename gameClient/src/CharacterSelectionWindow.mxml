@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="400" height="300" creationComplete="init()" initialize="loadServices()">
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.Alert;
+			import net.homeip.RemoveCharacterByIdResultEvent;
+			import net.homeip.RemoveCharacterById;
+			import com.beacon.rpg.events.CharacterEvent;
+			import mx.events.CollectionEvent;
+			import net.homeip.GetCharactersForAccount;
+			import mx.utils.Base64Encoder;
+			import net.homeip.RpgCharacter;
+			import net.homeip.GetCharactersForAccountResultEvent;
+			import net.homeip.CharacterServiceService;
+			import mx.graphics.codec.PNGEncoder;
+			import mx.graphics.ImageSnapshot;
+			import mx.controls.Image;
+			import com.beacon.rpg.events.GameStateChangeEvent;
+			import net.user1.reactor.Reactor;
+			import mx.utils.Base64Decoder;
+			import mx.core.Application;
+			import net.user1.reactor.UserAccount;
+			import mx.collections.ArrayCollection;
+			[Bindable]
+			private var characterListData:ArrayCollection = new ArrayCollection();
+			private var skullBytes:ByteArray=null;
+			private var characterService:CharacterServiceService;
+			
+			private function loadServices():void
+			{
+				characterService = new CharacterServiceService();
+				characterService.addgetCharactersForAccountEventListener(listCharacters);
+				characterService.addremoveCharacterByIdEventListener(characterDeleted);				
+			}
+			
+			private function init():void
+			{
+				var skullBMD:BitmapData = new BitmapData(48,48,true,0x00ffffff);
+				skullBMD.draw(skullImage);
+				var encoder:PNGEncoder = new PNGEncoder();
+				skullBytes = encoder.encode(skullBMD);
+				characterList.addEventListener(CharacterEvent.DELETE, deleteCharacter);
+			}
+			
+			public function loadCharacters():void
+			{
+				characterListData.removeAll();
+				var myAccount:UserAccount = Application.application.myAccount;
+				var params:GetCharactersForAccount = new GetCharactersForAccount();
+				params.account=myAccount.getUserID();
+				characterService.getCharactersForAccount(params);
+			}
+
+			private function listCharacters(event:GetCharactersForAccountResultEvent):void {				
+				if (event.result!=null) {
+					for each (var character:RpgCharacter in event.result) {
+						var listItem:CharacterListItem = new CharacterListItem();
+						listItem.charName=character.name;
+						listItem.charId = character.characterId;
+						listItem.obs=character.observation;
+						listItem.str=character.strength;
+						listItem.int=character.intelligence;
+						listItem.agi=character.agility;
+						listItem.cha=character.charm;
+						listItem.faction=character.faction;
+						listItem.location=character.location;
+						listItem.zoneId=character.zoneId;
+						if (character.avatar!=null) {
+							listItem.avatar=character.avatar;
+							var encoder:Base64Encoder = new Base64Encoder();
+							encoder.encodeBytes(character.avatar);
+							listItem.avatarEnc=encoder.flush();
+						} else {
+							listItem.avatar=skullBytes;
+						}
+		  				listItem.posy=character.x;
+		  				listItem.posx=character.y;
+						characterListData.addItem(listItem);						
+					}
+				}
+			}
+
+			public function deleteCharacter(event:CharacterEvent):void
+			{
+				trace("Initiating delete of character id:"+event.characterId);
+				var params:RemoveCharacterById = new RemoveCharacterById();
+				params.id = event.characterId;
+				characterService.removeCharacterById(params);
+			}	
+			
+			private function characterDeleted(event:RemoveCharacterByIdResultEvent):void
+			{
+				if (event.result==null || event.result.success==false) {
+					Alert.show("Failed to remove character!");
+				} else {
+					Alert.show("Removed Character");
+				}
+				loadCharacters();
+			}
+					
+			private function createPressed():void
+			{
+				Application.application.currentState="CharacterCreation";
+			}
+			
+			private function playPressed():void
+			{
+				var character:CharacterListItem = characterList.selectedItem as CharacterListItem;
+				Application.application.character = character;
+				var loadingBackdrop:String = "images/23168474.jpg";
+				if (character.faction=="Faelor") {
+					loadingBackdrop = "images/druids.jpg";
+				}
+				//Application.application.loadingScreen=loadingBackdrop;
+				Application.application.currentState="InGame";
+			}
+		]]>
+	</mx:Script>
+	<mx:Button label="Play!" id="playButton" right="10" bottom="10" enabled="{characterList.selectedItem!=null}" click="playPressed()"/>
+	<mx:Button label="Create New" id="createButton" left="10" bottom="10" click="createPressed()"/>
+	<mx:List left="10" top="10" bottom="40" right="10" id="characterList" allowMultipleSelection="false" allowDragSelection="false"
+		dataProvider="{characterListData}" itemRenderer="CharacterListItem"></mx:List>
+	<!--<mx:Button label="Refresh" id="refreshButton" right="73" bottom="10" click="loadCharacters()"/>-->
+	<mx:Image source="@Embed(source='images/skull.png')" visible="false" id="skullImage"/>
+</mx:Canvas>

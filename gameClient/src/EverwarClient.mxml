@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml"
+  xmlns:union="net.user1.reactor.ui.*"
+  layout="absolute"
+  initialize="initializeListener(event)" xmlns:ns1="com.beacon.rpg.components.*" creationComplete="init()">
+
+<!--
+// =============================================================================
+// CSS STYLING
+// =============================================================================
+-->
+<mx:Style>
+  Application { backgroundColor: "0xDDDDDD"}
+</mx:Style>
+
+
+<!--
+// =============================================================================
+// SCRIPTING
+// =============================================================================
+-->
+<mx:Script>
+<![CDATA[
+	import net.user1.reactor.Attribute;
+	import net.user1.reactor.AttributeEvent;
+	import net.user1.reactor.Client;
+	import punk.util.Key;
+	import mx.controls.Alert;
+	import net.homeip.TileServiceService;
+	import mx.rpc.events.FaultEvent;
+	import net.homeip.Tile;
+	import net.homeip.GetTileById;
+	import net.homeip.GetTileByIdResultEvent;
+	import com.beacon.rpg.ZoneRenderer;
+	import net.user1.reactor.RoomEvent;
+	import net.homeip.ZoneMap;
+	import net.homeip.GetZoneMapByIdResultEvent;
+	import net.homeip.GetZoneMapById;
+	import net.homeip.ZoneMapServiceService;
+  import mx.events.FlexEvent;
+ 
+  import net.user1.reactor.IClient;
+  import net.user1.reactor.Reactor;
+  import net.user1.reactor.ReactorEvent;
+  import net.user1.reactor.Room;
+  import net.user1.reactor.RoomManagerEvent;
+  import net.user1.reactor.chat.ChatClient;
+ 
+// =============================================================================
+// VARIABLES
+// =============================================================================
+  [Bindable]
+  private var reactor:Reactor;
+  [Bindable]
+  private var room:Room;
+  
+  private var zone:ZoneMap;
+  private var zoneRenderer:ZoneRenderer;
+  
+  private var progressWindow:ProgressWindow;
+  private var tileService:TileServiceService;
+  private var zoneService:ZoneMapServiceService;
+
+  private var surfaceBitmap:Bitmap =null ;		
+  private var interactiveBitmap:Bitmap = null;	
+
+	private var camera:Point = new Point(0,0);
+	private var pos:Point = new Point(0,0);
+	private var miniMaplocator:Sprite;
+	[Embed(source="images/gobo.png")]
+	private var playerImage:Class;
+	private var me:Client;
+	private var playerSprite:Sprite;
+	private var otherSprites:Object={};
+	
+// =============================================================================
+// FLEX INITIALIZE LISTENER
+// =============================================================================
+
+  /**
+   * Triggered when the Flex application has been initialized.
+   */
+  protected function initializeListener (event:FlexEvent):void {
+    reactor = new Reactor();
+    reactor.addEventListener(ReactorEvent.READY, reactorReadyListener);
+    reactor.addEventListener(ReactorEvent.CLOSE, reactorCloseListener);
+    reactor.connect("darkshade.homeip.net", 9100);
+
+	tileService = new TileServiceService();
+	tileService.addgetTileByIdEventListener(fetchTileResultHandler);
+	
+	zoneService = new ZoneMapServiceService();
+	zoneService.addgetZoneMapByIdEventListener(getZoneByIdHandler);
+	zoneService.addZoneMapServiceServiceFaultEventListener(zoneServiceFaultHandler);
+  }
+  
+  private function init():void {
+	mapCanvas.validateNow();
+  }
+
+	public function updateDisplay():void
+	{
+		var bmd:BitmapData;
+		if (surfaceBitmap==null) {
+			bmd = new BitmapData(mapCanvas.width,mapCanvas.height,true,0x00ffffff);
+			surfaceBitmap = new Bitmap(bmd);
+			bmd = new BitmapData(mapCanvas.width,mapCanvas.height,true,0x00ffffff);
+			interactiveBitmap = new Bitmap(bmd);
+			mapCanvas.rawChildren.addChild(surfaceBitmap);		
+			mapCanvas.rawChildren.addChild(interactiveBitmap);		
+			surfaceBitmap.x=0;
+			surfaceBitmap.y=0;
+			interactiveBitmap.x=0;
+			interactiveBitmap.y=0;
+			pos.x=Math.floor(mapCanvas.width/2/48)*48;
+			pos.y=Math.floor(mapCanvas.height/2/48)*48;	
+		}
+		if (miniMap.source==null) {
+			miniMap.source=new Bitmap(zoneRenderer.surfaceBitmapData);
+			miniMaplocator = new Sprite();
+			miniMaplocator.graphics.lineStyle(1,123456,.5);
+			miniMaplocator.graphics.drawRect(0,0,100*mapCanvas.width/zoneRenderer.surfaceBitmapData.width, 100*mapCanvas.height/zoneRenderer.surfaceBitmapData.height);			
+			miniMapCanvas.rawChildren.addChild(miniMaplocator);
+		}
+		if (playerSprite==null) {
+			playerSprite = new Sprite();
+			playerSprite.addChild(new playerImage());
+			mapCanvas.rawChildren.addChild(playerSprite);
+			reactor.getClientManager().getClient(me.getClientID()).setAttribute("position",pos.x+","+pos.y);
+		}
+		miniMaplocator.x=camera.x/zoneRenderer.surfaceBitmapData.width*100;
+		miniMaplocator.y=camera.y/zoneRenderer.surfaceBitmapData.height*100;
+		zoneRenderer.renderSurface(surfaceBitmap, camera);
+		zoneRenderer.renderInteractive(interactiveBitmap,camera);
+		playerSprite.x = pos.x - camera.x;
+		playerSprite.y = pos.y - camera.y;		
+	}
+	
+	private function pressedKey(event:KeyboardEvent):void
+	{
+		var dest:Point = new Point(pos.x,pos.y);
+		var destCamera:Point = new Point(camera.x, camera.y);
+		if (event.keyCode==Key.RIGHT) dest.x=dest.x+48;
+		if (event.keyCode==Key.LEFT) dest.x=dest.x-48;
+		if (event.keyCode==Key.DOWN) dest.y=dest.y+48;
+		if (event.keyCode==Key.UP) dest.y=dest.y-48;
+		if (dest.x!=pos.x || dest.y!=pos.y) {
+			if (zoneRenderer.interactiveSpots["t_"+Math.floor(dest.x/48)+"_"+Math.floor(pos.y/48)]!=undefined) dest.x=pos.x;
+			if (zoneRenderer.interactiveSpots["t_"+Math.floor(pos.x/48)+"_"+Math.floor(dest.y/48)]!=undefined) dest.y=pos.y;
+			if (dest.x<0) dest.x=0;
+			if (dest.y<0) dest.y=0;
+			if (dest.x>zoneRenderer.surfaceBitmapData.width-48) dest.x=zoneRenderer.surfaceBitmapData.width-48;
+			if (dest.y>zoneRenderer.surfaceBitmapData.height-48) dest.y=zoneRenderer.surfaceBitmapData.height-48;
+			if (dest.x - destCamera.x>mapCanvas.width*.6) destCamera.x=destCamera.x+48;
+			if (dest.x - destCamera.x<mapCanvas.width*.3) destCamera.x=destCamera.x-48;
+			if (dest.y - destCamera.y>mapCanvas.height*.6) destCamera.y=destCamera.y+48;
+			if (dest.y - destCamera.y<mapCanvas.height*.3) destCamera.y=destCamera.y-48;
+			pos = dest;
+			reactor.getClientManager().getClient(me.getClientID()).setAttribute("position",pos.x+","+pos.y);
+			if (destCamera.x+surfaceBitmap.width>zoneRenderer.surfaceBitmapData.width) 
+				destCamera.x = zoneRenderer.surfaceBitmapData.width-surfaceBitmap.width;
+			if (destCamera.y+surfaceBitmap.height>zoneRenderer.surfaceBitmapData.height) 
+				destCamera.y = zoneRenderer.surfaceBitmapData.height-surfaceBitmap.height;
+			if (destCamera.x < 0) destCamera.x=0;
+			if (destCamera.y < 0) destCamera.y=0;
+			if (destCamera.x!=camera.x || destCamera.y!=camera.y) {
+				for each (var other:Sprite in otherSprites) {
+					if (other!=null) {
+						other.x = other.x - destCamera.x + camera.x;
+						other.y = other.y - destCamera.y + camera.y;
+						if (other.x<0 || other.x>surfaceBitmap.width-48) {
+							other.visible=false;
+						} else {
+							other.visible=true;
+						}
+						if (other.y<0 || other.y>surfaceBitmap.height-48) {
+							other.visible=false;
+						} else {
+							other.visible=true;
+						}
+					}
+				}
+				camera=destCamera;				
+			}
+			updateDisplay();
+		}
+	}
+
+// =============================================================================
+// REACTOR READY LISTENER
+// =============================================================================
+
+  /**
+   * Triggered when Reactor successfully connects to Union server.
+   */
+  protected function reactorReadyListener (e:ReactorEvent):void {
+    // Make every client in this application an instance of ChatClient
+    //reactor.getClientManager().setDefaultClientClass(ChatClient);
+    // Create the chat room on the server
+    room = reactor.getRoomManager().joinRoom("Stelmor");
+    
+    // Set dependent references
+    //chatPanel.accountBar.accountManager = reactor.getAccountManager();
+    //chatPanel.userlist.accountManager = reactor.getAccountManager();
+    //chatPanel.chatIncomingTextArea.messageManager = reactor.getMessageManager();
+    chatPanel.messageManager = reactor.getMessageManager();
+    
+    // Register for room-removal notification
+    reactor.getRoomManager().addEventListener(RoomManagerEvent.ROOM_REMOVED,
+                                              roomRemovedListener);
+    reactor.getRoomManager().addEventListener(RoomEvent.JOIN_RESULT, roomJoinedHandler);
+  }
+
+  private function roomJoinedHandler(event:RoomEvent):void {
+  	for each (var client:Client in reactor.getClientManager().getClients()) {
+  		if (client.isSelf()) {
+  			me=client;
+  		} else {
+  			var other:Sprite = new Sprite();
+  			other.addChild(new playerImage());
+  			other.z=10;
+  			otherSprites[client.getClientID()]=other;
+  			var otherPos:Array = client.getAttribute("position").split(",");
+  			if (otherPos.length==2) {
+  				other.y=otherPos.pop()-camera.y;
+  				other.x=otherPos.pop()-camera.x;
+  			}
+  			client.addEventListener(AttributeEvent.UPDATE, attributeEventListener);
+  		}
+  	}
+  	charInfoPanel.visible=true;
+	charInfoPanel.characterName.text="User"+me.getClientID();
+	room.addMessageListener("CHAT_MESSAGE", chatMessageListener);
+	room.addEventListener(RoomEvent.ADD_OCCUPANT, addOccupantListener);
+	room.addEventListener(RoomEvent.REMOVE_OCCUPANT, removeOccupantListener);
+	
+    // Fetch the map for this room
+    var zoneId:Number = new Number(room.getAttribute("zoneId"));
+    var params:GetZoneMapById = new GetZoneMapById();
+    params.id = zoneId;
+    zoneService.getZoneMapById(params);
+	progressWindow = ProgressWindow.popUp(this);
+	progressWindow.description.text="Loading... ";	
+  }
+
+	private function getZoneByIdHandler(event:GetZoneMapByIdResultEvent):void {
+		zone = event.result.zoneMap;
+		charInfoPanel.currentZone.text=zone.zoneName;
+		//charInfoPanel.avatar.source=new playerImage();
+		zoneRenderer = new ZoneRenderer();
+		zoneRenderer.loadZone(zone);
+		reactor.getRoomManager().sendMessage("CHAT_MESSAGE", [room.getRoomID()],true, null,"User"+me.getClientID()+" has entered "+zone.zoneName);
+	}
+	
+	public function fetchTileImageData(currentIndex:int):void
+	{
+		var tileToGet:GetTileById = new GetTileById();
+		tileToGet.tileId=zoneRenderer.tileIndex[currentIndex];
+		progressWindow.description.text="Fetching tile id:"+tileToGet.tileId;
+		//trace("Fetching tile id:"+tileToGet.tileId);
+		callLater(tileService.getTileById,[tileToGet]);
+		progressWindow.progressBar.setProgress(currentIndex, zoneRenderer.tileIndex.length);
+	}
+	
+	private function fetchTileResultHandler(event:GetTileByIdResultEvent):void
+	{
+		var tile:Tile = event.result.tile;
+		if (tile!=null) {
+			zoneRenderer.tileImageData.push(tile.imageData);
+			var currentIndex:int = zoneRenderer.tileIndex.indexOf(tile.id);
+			if (currentIndex>=0 && currentIndex<zoneRenderer.tileIndex.length-1) {
+				fetchTileImageData(currentIndex+1);
+			} else {
+				zoneRenderer.loadTileImageData();
+				callLater(progressWindow.closeDialog,[]);
+	
+			}
+		} else {
+			trace("Null tile retrieved!");
+		}
+	}	
+
+	public function addKeyboardListener():void
+	{
+		stage.addEventListener(KeyboardEvent.KEY_DOWN, pressedKey);	
+		for each (var other:Sprite in otherSprites) {
+			if (other!=null) {
+				if (other.x<0 || other.x>surfaceBitmap.width-48) {
+					other.visible=false;
+				} else {
+					other.visible=true;
+				}
+				if (other.y<0 || other.y>surfaceBitmap.height-48) {
+					other.visible=false;
+				} else {
+					other.visible=true;
+				}
+				mapCanvas.rawChildren.addChild(other);
+			}
+		}				
+		
+	}
+	
+   private function chatMessageListener(fromClient:IClient, chatText:String ):void
+   {
+       chatPanel.displayMessage("User"+fromClient.getClientID() + ": " + chatText);
+   }
+
+	private function zoneServiceFaultHandler(event:FaultEvent):void
+	{
+		Alert.show("Error!\n"+event.message);
+	}
+
+	private function attributeEventListener(event:AttributeEvent):void
+	{
+		var attr:Attribute = event.getChangedAttr();
+		if (attr.name=="position") {
+			var otherPosString:String = attr.value;
+	  		if (otherPosString!=null && otherPosString.length>2) {
+		  		var otherPos:Array = otherPosString.split(",");
+		  		var client:Client = event.target as Client;
+		  		var other:Sprite = otherSprites[client.getClientID()] as Sprite;
+	  			other.y=otherPos.pop()-camera.y;
+	  			other.x=otherPos.pop()-camera.x;
+				if (other.x<0 || other.x>surfaceBitmap.width-48) {
+					other.visible=false;
+				} else {
+					other.visible=true;
+				}
+				if (other.y<0 || other.y>surfaceBitmap.height-48) {
+					other.visible=false;
+				} else {
+					other.visible=true;
+				}
+	  		}		
+	  	}
+	}			
+	private function addOccupantListener(event:RoomEvent):void
+	{
+		trace("Added "+event.getClientID());
+		var other:Sprite = new Sprite();
+		other.addChild(new playerImage());
+		otherSprites[event.getClientID()]=other;
+		var otherPosString:String = event.getClient().getAttribute("position");
+  		if (otherPosString!=null && otherPosString.length>2) {
+	  		var otherPos:Array = otherPosString.split(",");
+  			other.y=otherPos.pop()-camera.y;
+  			other.x=otherPos.pop()-camera.x;
+  			other.z=10;
+  		} else {
+  			other.visible=false;
+  		}
+  		mapCanvas.rawChildren.addChild(other);
+  		event.getClient().addEventListener(AttributeEvent.UPDATE, attributeEventListener);
+	}
+
+	private function removeOccupantListener(event:RoomEvent):void
+	{
+		trace("Removed "+event.getClientID());
+		event.getClient().removeEventListener(AttributeEvent.UPDATE, attributeEventListener);
+		var i:int = mapCanvas.rawChildren.getChildIndex(otherSprites[event.getClientID()]);
+		mapCanvas.rawChildren.removeChildAt(i);
+		otherSprites[event.getClientID()]=null;
+	}
+// =============================================================================
+// REACTOR CLOSE LISTENER
+// =============================================================================
+
+  /**
+   * Triggered when Reactor's connection to Union server is terminated.
+   */
+  protected function reactorCloseListener (e:ReactorEvent):void {
+    //chatPanel.accountBar.accountManager = null;
+    //chatPanel.userlist.accountManager = null;
+    chatPanel.messageManager = null;
+    room = null;
+  }
+
+// =============================================================================
+// ROOM REMOVED LISTENER
+// =============================================================================
+
+  /**
+   * Triggered when the chat room is removed. In this application, nothing can
+   * remove the room, but the room might be removed by an administrator
+   * application, such as UnionAdmin.
+   */
+  protected function roomRemovedListener (e:RoomManagerEvent):void {
+    if (e.getRoom() == room) {
+      //chatPanel.userlist.accountManager = null;
+      chatPanel.messageManager = null;
+      room = null;
+    }
+  }
+  
+  private function submitChat():void
+  {
+  	reactor.getRoomManager().sendMessage("CHAT_MESSAGE",[room.getRoomID()],true,null,chatInput.text);
+  	chatInput.text="";
+  }
+ 
+]]>
+</mx:Script>
+
+<!--
+// =============================================================================
+// MXML USER INTERFACE CONTROLS
+// =============================================================================
+-->
+  <mx:ApplicationControlBar left="0" right="0" top="0">
+    <mx:Label text="Isle of Everwar"/>
+    <mx:Spacer width="100%" />
+    <union:ConnectionStatusPane reactor="{reactor}" />
+  </mx:ApplicationControlBar>
+  <mx:HBox left="10" right="10" bottom="10">
+    <mx:TextInput id="chatInput" enter="submitChat()"/>
+    <union:ChatSendButton click="submitChat()"/>
+    <mx:Spacer width="100%" height="10"/>
+    <mx:Button label="Inventory" id="inventoryButton"/>
+    <union:AccountBar id="accountBar">
+    </union:AccountBar>
+  </mx:HBox>
+  <mx:Canvas left="10" right="10" top="37" bottom="40" id="mapCanvas">
+  </mx:Canvas>
+  <ns1:CharacterInfoPanel visible="true" height="147" left="10" width="180" top="36" id="charInfoPanel">
+  </ns1:CharacterInfoPanel>
+  <union:ChatIncomingTextArea height="144" width="300"  bottom="40" left="10" id="chatPanel" 
+  		backgroundAlpha="0.4" color="#F5F815" backgroundColor="#722020" borderStyle="none"
+  		verticalScrollPolicy="off" horizontalScrollPolicy="off" wordWrap="true" liveScrolling="true"/>
+  <mx:Canvas id="miniMapCanvas" right="10" top="36" width="100" height="100">
+  	<mx:Image id="miniMap" scaleContent="true" width="100%" height="100%"/>
+  </mx:Canvas>
+</mx:Application>

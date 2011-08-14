@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="100%" height="100%" showCloseButton="true" close="closeZone()">
+	<mx:Script>
+		<![CDATA[
+			import net.homeip.GetMapObjectsForZoneIdResponse;
+			import net.homeip.MapObject;
+			import com.beacon.flex.events.FloodFillEvent;
+			import mx.graphics.ImageSnapshot;
+			import mx.graphics.codec.PNGEncoder;
+			import mx.core.Application;
+			import com.beacon.maps.ZoneCell;
+			import mx.containers.GridRow;
+			import mx.containers.Grid;
+			import com.beacon.maps.ZoneMap;
+			
+			private var zone:ZoneMap = null;
+			public static const SURFACE_LAYER:String = "Surface Layer";
+			public static const INTERACTIVE_LAYER:String = "Interactive Layer";
+			public static const UPPER_LAYER:String = "Upper Layer";
+			private var gridArray:Array;
+			public var tileIndex:Array;
+			public var tileImageData:Array;
+			
+			public function loadZoneMap(myzone:ZoneMap):void
+			{
+				zone = myzone;
+				title = zone.zoneName;
+				var mapGrid:Grid = new Grid();
+				mapGrid.x=0;
+				mapGrid.y=0;
+				mapGrid.percentHeight=100;
+				mapGrid.percentWidth=100;
+				mapGrid.setStyle("horizontalGap",0);
+				mapGrid.setStyle("verticalGap",0);
+				gridArray = [zone.height];
+				tileIndex = [];
+				for (var gridy:int=0;gridy<zone.height;gridy++) {
+					var gridRow:GridRow = new GridRow();
+					gridRow.height=48;
+					gridRow.id="row"+gridy;
+					gridArray[gridy] = [zone.width];
+					for (var gridx:int=0;gridx<zone.width;gridx++) {
+						var gridItem:ZoneGridItem = new ZoneGridItem();
+						gridItem.width=48;
+						gridItem.height=48;
+						gridItem.id="col"+gridx+"row"+gridy;
+						gridItem.xpos=gridx;
+						gridItem.ypos=gridy;
+						gridItem.zoneId=zone.zoneId;
+						if (zone.mapData!=null) {
+							var cell:ZoneCell = zone.mapData.pop() as ZoneCell;
+							gridItem.loadCell(cell);
+							if (cell==null) {
+								Application.application.objectInfoTextArea.text+="\n.. missing map data at grid("+gridx+","+gridy+")!";
+							} else {
+								if (shouldAddTileIdToIndex(cell.surfaceLayerTileId)) {
+									tileIndex.push(cell.surfaceLayerTileId);
+								}
+								if (shouldAddTileIdToIndex(cell.interactiveLayerTileId)) {
+									tileIndex.push(cell.interactiveLayerTileId);
+								}
+								if (shouldAddTileIdToIndex(cell.upperLayerTileId)) {
+									tileIndex.push(cell.upperLayerTileId);
+								}
+							}
+						} else {
+							gridItem.createCell();
+						}
+						gridArray[gridy][gridx]=gridItem;
+						gridRow.addChild(gridItem);
+					}
+					mapGrid.addChild(gridRow);
+				}
+				addChild(mapGrid);
+				mapGrid.addEventListener(FloodFillEvent.FILL, floodFillMap);
+				Application.application.getMapObjectsForZoneId(zone.zoneId);
+			}
+			
+			public function loadMapObjects(mapObjectsList:GetMapObjectsForZoneIdResponse):void
+			{
+				if (mapObjectsList!=null && mapObjectsList.length>0) {
+					for (var i:int = 0;i<mapObjectsList.length;i++) {
+						var mapObject:MapObject = mapObjectsList.getMapObjectAt(i);
+						if (shouldAddTileIdToIndex(mapObject.tileId)) {
+							tileIndex.push(mapObject.tileId);
+						}
+						var gridItem:ZoneGridItem = gridArray[mapObject.y][mapObject.x] as ZoneGridItem;
+						gridItem.mapObject = mapObject;
+					}
+				}
+				if (tileIndex.length>0) {
+					Application.application.fetchTileImageData(0);
+				}
+			}
+			
+			private function shouldAddTileIdToIndex(tileId:Number):Boolean
+			{
+				return (!isNaN(tileId) && tileId>0 && tileIndex.indexOf(tileId)<0)
+			}
+			
+			public function loadTileImageData():void
+			{
+				Application.application.objectInfoTextArea.text="Applying image data";
+				for each (var grid:Grid in getChildren()) {
+					for each (var gridRow:GridRow in grid.getChildren()) {
+						for each (var gridItem:ZoneGridItem in gridRow.getChildren()) {
+							gridItem.applyImageData(tileIndex, tileImageData);
+						}
+					}
+				}								
+			}
+			
+			public function getZoneMap():ZoneMap
+			{
+				var zoneName:String = zone.zoneName;
+				var zoneId:int = zone.zoneId;
+				var zoneWidth:int = zone.width;
+				var zoneHeight:int = zone.height;
+				zone = new ZoneMap();
+				zone.zoneId = zoneId;
+				zone.zoneName = zoneName;
+				zone.height = zoneHeight;
+				zone.width = zoneWidth;
+				zone.mapData = new Array();
+				for each (var grid:Grid in getChildren()) {
+					for each (var gridRow:GridRow in grid.getChildren()) {
+						for each (var gridItem:ZoneGridItem in gridRow.getChildren()) {
+							zone.mapData.unshift(gridItem.getCell());
+						}
+					}
+				}				
+				return zone;
+			}
+			
+			public function getZoneMapObjects():Array
+			{
+				var mapObjectsList:Array = new Array();
+				for each (var grid:Grid in getChildren()) {
+					for each (var gridRow:GridRow in grid.getChildren()) {
+						for each (var gridItem:ZoneGridItem in gridRow.getChildren()) {
+							var mapObject:MapObject = gridItem.mapObject;
+							if (mapObject!=null) {
+								mapObjectsList.unshift(mapObject);
+							}
+						}
+					}
+				}	
+				return mapObjectsList;							
+			}
+			
+			public function createZoneMap(mapTitle:String, mapWidth:int, mapHeight:int):void
+			{
+				var created:ZoneMap = new ZoneMap();
+				created.zoneName = mapTitle;
+				created.width = mapWidth;
+				created.height = mapHeight;
+				created.mapData = null;
+				created.zoneId = -1;
+				loadZoneMap(created);
+			}
+			
+			public function viewOnlyLayer(layer:String):void
+			{
+				for each (var grid:Grid in getChildren()) {
+					for each (var gridRow:GridRow in grid.getChildren()) {
+						for each (var gridItem:ZoneGridItem in gridRow.getChildren()) {
+							if (layer!=null) {
+								gridItem.viewLayer(layer);
+							} else {
+								gridItem.viewAllLayers();
+							}
+						}
+					}
+				}
+			}
+			
+			public function viewAllLayers():void
+			{
+				viewOnlyLayer(null);
+			}
+			
+			public function closeZone():void
+			{
+				Application.application.currentZone=null;
+				parent.removeChild(this);
+			}
+			
+			public function exportMap():void
+			{
+				var file:FileReference = new FileReference();
+				file.save(encodeImage(),zone.zoneName+".png");				
+			}
+
+			private function encodeImage():ByteArray 
+            {
+             	var pngEnc:PNGEncoder = new PNGEncoder();
+				var byteArr:ByteArray = null;
+
+           		byteArr=pngEnc.encode(ImageSnapshot.captureBitmapData(getChildAt(0)));
+
+                return byteArr;
+            }
+            
+            private function floodFillMap(event:FloodFillEvent):void
+            {
+            	trace("Caught Flood Fill request from "+event.origin.id);
+            	var originX:int = event.origin.xpos;
+            	var originY:int = event.origin.ypos;
+            	var nextGrid:ZoneGridItem = null;
+            	if (originX+1<zone.width) {
+            		nextGrid = gridArray[originY][originX+1] as ZoneGridItem;
+            		callLater(nextGrid.continueFill,[event.replaceTileId]);
+            	}
+            	if (originY+1<zone.height) {
+            		nextGrid = gridArray[originY+1][originX] as ZoneGridItem;
+            		callLater(nextGrid.continueFill,[event.replaceTileId]);            		
+            	}
+            	if (originX-1>=0) {
+            		nextGrid = gridArray[originY][originX-1] as ZoneGridItem;
+            		callLater(nextGrid.continueFill,[event.replaceTileId]);
+            	}
+            	if (originY-1>=0) {
+            		nextGrid = gridArray[originY-1][originX] as ZoneGridItem;
+            		callLater(nextGrid.continueFill,[event.replaceTileId]);            		
+            	}
+            }
+            
+		]]>
+	</mx:Script>
+</mx:TitleWindow>

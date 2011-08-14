@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="400" height="300" title="Move Tile to Category" 
+		verticalScrollPolicy="off" horizontalScrollPolicy="off">
+	<mx:Script>
+		<![CDATA[
+			import mx.core.UIComponent;
+			import mx.managers.PopUpManager;
+			import com.beacon.flex.events.MoveTileEvent;
+			
+			private static var dialog:MoveTileDialog=null;
+			
+ 			public static function popUp(parent:UIComponent):MoveTileDialog
+			{
+				dialog = PopUpManager.createPopUp(parent,MoveTileDialog,true) as MoveTileDialog;
+				PopUpManager.centerPopUp(dialog);
+  				return dialog;
+			}
+
+			private function cancelPressed():void
+			{
+				var myEvent:MoveTileEvent = new MoveTileEvent(MoveTileEvent.CANCEL);
+				myEvent.dialog=dialog;
+				dispatchEvent(myEvent);
+			}			
+			
+			private function okPressed():void
+			{
+				var myEvent:MoveTileEvent = new MoveTileEvent(MoveTileEvent.MOVE);
+				myEvent.categoryId=categoryTree.selectedItem.@id;
+				myEvent.categoryName=categoryTree.selectedItem.@name;
+				myEvent.dialog=dialog;
+				dispatchEvent(myEvent);
+			}
+			
+			public function closeDialog():void
+			{
+				PopUpManager.removePopUp(dialog);
+			}
+
+		]]>
+	</mx:Script>
+	<mx:Button label="Cancel" right="10" bottom="10" id="cancelButton" click="cancelPressed()"/>
+	<mx:Button label="Move" right="81" bottom="10" id="moveButton" enabled="{categoryTree.selectedItem!=null}" click="okPressed()"/>
+	<mx:Label text="Tile" left="10" top="10"/>
+	<mx:Image width="48" height="48" left="10" top="36" id="tileImage"/>
+	<mx:Label text="Destination Category" left="94" top="10"/>
+	<mx:Tree left="94" right="10" top="36" bottom="40" id="categoryTree" allowMultipleSelection="false" labelField="@name"></mx:Tree>
+	
+</mx:TitleWindow>

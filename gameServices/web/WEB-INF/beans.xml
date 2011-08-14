@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:jaxws="http://cxf.apache.org/jaxws"
+ xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.0.xsd
+ http://cxf.apache.org/jaxws http://cxf.apache.org/schemas/jaxws.xsd">
+
+    <import resource="classpath:META-INF/cxf/cxf.xml" />
+    <import resource="classpath:META-INF/cxf/cxf-extension-soap.xml" />
+    <import resource="classpath:META-INF/cxf/cxf-servlet.xml" />
+
+    <bean id="dataSource" destroy-method="close" class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+        <property name="url" value="jdbc:mysql://localhost/everwar?autoReconnect=true"/>
+        <property name="username" value="everwar"/>
+        <property name="password" value="everwar"/>
+        <property name="maxActive" value="40"/>
+        <property name="maxIdle" value="3"/>
+        <property name="removeAbandoned" value="true"/>
+        <property name="removeAbandonedTimeout" value="30"/>
+        <property name="logAbandoned" value="true"/>
+        <property name="defaultAutoCommit" value="false"/>
+        <property name="testWhileIdle" value="true"/>
+        <property name="validationQuery" value="SELECT 1"/>
+    </bean>
+
+    <!--<bean id="dataSource" class="org.springframework.jndi.JndiObjectFactoryBean">
+        <property name="jndiName" value="java:comp/env/jdbc/everwarDB"/>
+    </bean>-->
+
+    <bean id="categoryDao" class="com.beacon.rpg.server.dao.mysql.CategoryDao">
+        <constructor-arg ref="dataSource"/>
+    </bean>
+
+    <bean id="tileDao" class="com.beacon.rpg.server.dao.mysql.TileDao">
+        <constructor-arg ref="dataSource"/>
+    </bean>
+
+    <bean id="zoneMapDao" class="com.beacon.rpg.server.dao.mysql.ZoneMapDao">
+        <constructor-arg ref="dataSource"/>
+    </bean>
+
+    <bean id="characterDao" class="com.beacon.rpg.server.dao.mysql.CharacterDao">
+        <constructor-arg ref="dataSource"/>
+    </bean>
+    
+    <bean id="mapObjectDao" class="com.beacon.rpg.server.dao.mysql.MapObjectDao">
+        <constructor-arg ref="dataSource"/>
+    </bean>
+
+    <bean id="npcDao" class="com.beacon.rpg.server.dao.mysql.NPCDao">
+        <constructor-arg ref="dataSource"/>
+    </bean>
+
+    <bean id="conversationDao" class="com.beacon.rpg.server.dao.mysql.ConversationDao">
+        <constructor-arg ref="dataSource"/>
+    </bean>
+
+    <bean id="exitDao" class="com.beacon.rpg.server.dao.mysql.ExitDao">
+        <constructor-arg ref="dataSource"/>
+    </bean>
+
+    <bean id="schemaValidator" class="com.beacon.rpg.server.SchemaValidator">
+        <constructor-arg>
+            <list>
+                <ref bean="categoryDao"/>
+                <ref bean="tileDao"/>
+                <ref bean="zoneMapDao"/>
+                <ref bean="characterDao"/>
+                <ref bean="mapObjectDao"/>
+                <ref bean="npcDao"/>
+                <ref bean="conversationDao"/>
+                <ref bean="exitDao"/>
+            </list>
+        </constructor-arg>
+    </bean>
+
+    <bean id="categoryService" class="com.beacon.rpg.editor.ws.category.CategoryService">
+        <constructor-arg ref="categoryDao"/>
+    </bean>
+
+    <bean id="tileService" class="com.beacon.rpg.editor.ws.tile.TileService">
+        <constructor-arg ref="tileDao"/>
+    </bean>
+
+    <bean id="zoneMapService" class="com.beacon.rpg.editor.ws.map.ZoneMapService">
+        <constructor-arg ref="zoneMapDao"/>
+    </bean>
+
+    <bean id="characterService" class="com.beacon.rpg.ws.character.CharacterService">
+        <constructor-arg ref="characterDao"/>
+    </bean>
+
+    <bean id="mapObjectService" class="com.beacon.rpg.ws.mapObject.MapObjectService">
+        <constructor-arg ref="mapObjectDao"/>
+    </bean>
+
+    <bean id="npcService" class="com.beacon.rpg.ws.npc.NPCService">
+        <constructor-arg ref="npcDao"/>
+    </bean>
+
+    <bean id="conversationService" class="com.beacon.rpg.ws.conversation.ConversationService">
+        <constructor-arg ref="conversationDao"/>
+    </bean>
+
+    <bean id="exitService" class="com.beacon.rpg.ws.exit.ExitService">
+        <constructor-arg ref="exitDao"/>
+    </bean>
+
+    <jaxws:endpoint
+    id="categories"
+    implementor="#categoryService"
+    address="/categories"/>
+
+    <jaxws:endpoint id="tiles" implementor="#tileService"
+    address="/tiles"/>
+
+    <jaxws:endpoint id="maps" implementor="#zoneMapService"
+    address="/maps"/>
+
+    <jaxws:endpoint id="characters" implementor="#characterService"
+    address="/characters"/>
+
+    <jaxws:endpoint id="mapObjects" implementor="#mapObjectService"
+    address="/mapObjects"/>
+
+    <jaxws:endpoint id="npc" implementor="#npcService"
+    address="/npc"/>
+
+    <jaxws:endpoint id="conversation" implementor="#conversationService"
+    address="/conversation"/>
+
+    <jaxws:endpoint id="exit" implementor="#exitService"
+    address="/exit"/>
+
+</beans>

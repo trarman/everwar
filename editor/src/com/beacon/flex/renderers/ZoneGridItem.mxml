@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:GridItem xmlns:mx="http://www.adobe.com/2006/mxml" width="48" height="48" horizontalScrollPolicy="off" verticalScrollPolicy="off" 
+		click="clickCell()" creationComplete="init()">
+   	<mx:Script>
+		<![CDATA[
+			import net.homeip.MapObject;
+			import mx.graphics.ImageSnapshot;
+			import mx.graphics.codec.PNGEncoder;
+			import com.beacon.flex.InteractiveDialog;
+			import mx.utils.ObjectUtil;
+			import com.beacon.flex.events.FloodFillEvent;
+			import mx.controls.Image;
+			import mx.core.Application;
+			import com.beacon.tiles.Tile;
+			import com.beacon.maps.ZoneCell;
+			
+			private var cell:ZoneCell = null;
+			private var layerContainer:Sprite;
+			[Embed(source="assets/images/checkerboard.jpg")]
+			private var baseClass:Class;
+			private var baseLayer:Sprite;
+			private var surfaceLayer:Sprite;
+			private var interactiveLayer:Sprite;
+			private var upperLayer:Sprite;
+			private var cursor:Sprite;
+			public var xpos:int;
+			public var ypos:int;
+			public var zoneId:int;
+			public var mapObject:MapObject = null;
+
+			public function init():void
+			{
+				addEventListener(MouseEvent.ROLL_OVER, rollOverHandler);
+				addEventListener(MouseEvent.ROLL_OUT, rollOutHandler);
+			}					
+			
+			private function rollOverHandler(event:MouseEvent):void
+			{
+				if (Application.application.currentTile!=null) {
+					updateLayer(cursor, Application.application.currentTile.imageData);
+				}
+			}
+			
+			private function rollOutHandler(event:MouseEvent):void
+			{
+				if (cursor.numChildren>0) {
+					cursor.removeChildAt(0);
+				}
+			}
+			
+			public function loadCell(item:ZoneCell):void
+			{
+				if (item==null) {
+					// Ach!  Bad!
+					item = new ZoneCell();
+				}
+
+				cell = item;
+				
+				layerContainer = new Sprite();
+
+				baseLayer = new Sprite();
+				var basebmp:Bitmap = new baseClass();
+				baseLayer.addChild(basebmp);
+				layerContainer.addChild(baseLayer);
+				
+				surfaceLayer = new Sprite();
+				/*if (item.surfaceLayer!=null && item.surfaceLayer.imageData!=null) {
+					updateLayer(surfaceLayer,item.surfaceLayer.imageData);
+				}*/				
+				layerContainer.addChild(surfaceLayer);
+				
+				interactiveLayer = new Sprite();
+				/*if (item.interactiveLayer!=null && item.interactiveLayer.imageData!=null) {
+					updateLayer(interactiveLayer,item.interactiveLayer.imageData);
+				}*/				
+				layerContainer.addChild(interactiveLayer);
+				
+				upperLayer = new Sprite();
+				/*if (item.upperLayer!=null && item.upperLayer.imageData!=null) {
+					updateLayer(upperLayer,item.upperLayer.imageData);
+				}*/				
+				layerContainer.addChild(upperLayer);
+
+				cursor = new Sprite();
+				cursor.alpha=.5;
+				layerContainer.addChild(cursor);
+				
+				rawChildren.addChild(layerContainer);				
+			}
+			
+			public function getCell():ZoneCell
+			{
+				if (mapObject!=null) {
+					cell.interactiveLayerTileId=0;
+				}
+				return cell;
+			}
+			
+			public function createCell():void
+			{
+				var item:ZoneCell = new ZoneCell();
+				item.surfaceLayerTileId=0;
+				item.interactiveLayerTileId=0;
+				item.upperLayerTileId=0;
+				callLater(loadCell,[item]);
+			}
+			
+			public function clickCell():void
+			{
+				var tile:Tile = Application.application.currentTile;
+				var msg:String = "Clicked cell";
+				var currentLayer:String = Application.application.currentLayer;
+				var currentCategory:String = Application.application.currentCategory;
+				var mode:String = Application.application.currentMode;
+				
+				if (mode!="Select") {
+					var mapTile:Number = getCellLayer(currentLayer);
+					if (tile!=null && tile.name!="_ERASER_" && currentCategory!="Trash") {
+						msg = "Painting "+tile.name+" on "+currentLayer+" of "+id;
+						paintLayer(currentLayer,tile);
+					} else if (tile!=null && tile.name=="_ERASER_") {
+						msg = "Erasing from "+currentLayer+" of "+id;
+						eraseLayer(currentLayer);
+					}
+					if (mode=="Fill"  
+							&& !(isNaN(mapTile) && tile==null)
+							&& !(!isNaN(mapTile) && tile!=null && mapTile==tile.id)) {
+						var myEvent:FloodFillEvent = new FloodFillEvent(FloodFillEvent.FILL);
+						myEvent.origin=this;
+						myEvent.replaceTileId=mapTile;
+						callLater(dispatchEvent,[myEvent]);
+					}
+				} else {
+					if (mapObject==null && (isNaN(cell.interactiveLayerTileId) || cell.interactiveLayerTileId==0)) {
+						msg = "No object to select in interactive layer of "+id;
+					} else {
+						msg = "Defining interactivity of tile at "+id;
+						var pngEnc:PNGEncoder = new PNGEncoder();
+						var byteArr:ByteArray = null;
+	               		byteArr=pngEnc.encode(ImageSnapshot.captureBitmapData(interactiveLayer));
+                		var dialog:InteractiveDialog = InteractiveDialog.popUp(this);
+						dialog.previewImage.source = byteArr;
+						if (mapObject!=null) {
+							dialog.tileId = mapObject.tileId;
+						} else {
+							dialog.tileId = cell.interactiveLayerTileId;
+						}
+						dialog.xpos = xpos;
+						dialog.ypos = ypos;
+						dialog.zoneId = zoneId;
+						dialog.parentGridItem = this;
+						callLater(dialog.setMapObject,[mapObject]);
+					}
+				}
+				Application.application.objectInfoTextArea.text=msg;
+			}
+
+			public function continueFill(targetTileId:Number):void
+			{
+				var currentLayer:String = Application.application.currentLayer;
+				var cellLayer:Number = getCellLayer(currentLayer);
+				if ((isNaN(cellLayer) && isNaN(targetTileId)) ||
+						(!isNaN(cellLayer) && !isNaN(targetTileId) && getCellLayer(currentLayer)==targetTileId)) {
+					clickCell();
+				}
+			}
+
+			private function paintLayer(currentLayer:String, tile:Tile):void
+			{
+				updateLayer(getLayer(currentLayer), tile.imageData);
+				//setCellLayer(currentLayer, convertTile(tile));
+				setCellLayer(currentLayer, tile.id);
+			}	
+					
+			private function eraseLayer(currentLayer:String):void
+			{
+				var layer:Sprite = getLayer(currentLayer);
+				if (layer.numChildren>0) {
+					layer.removeChildAt(0);
+				}
+				setCellLayer(currentLayer,0);
+			}
+
+			private function getLayer(currentLayer:String):Sprite {
+				var result:Sprite = null;
+				switch (currentLayer) {
+					case ZoneGrid.SURFACE_LAYER:
+						result=surfaceLayer;
+						break;
+					case ZoneGrid.INTERACTIVE_LAYER:
+						result=interactiveLayer;
+						break;
+					case ZoneGrid.UPPER_LAYER:
+						result=upperLayer;
+						break;
+				}													
+				return result;
+			}	
+
+			private function setCellLayer(currentLayer:String, tileId:Number):void {
+				switch (currentLayer) {
+					case ZoneGrid.SURFACE_LAYER:
+						cell.surfaceLayerTileId=tileId;
+						break;
+					case ZoneGrid.INTERACTIVE_LAYER:
+						cell.interactiveLayerTileId=tileId;
+						break;
+					case ZoneGrid.UPPER_LAYER:
+						cell.upperLayerTileId=tileId;
+						break;
+				}										
+			}	
+					
+			private function getCellLayer(currentLayer:String):Number {
+				var mapTile:Number = undefined;
+				switch (currentLayer) {
+					case ZoneGrid.SURFACE_LAYER:
+						mapTile = cell.surfaceLayerTileId;
+						break;
+					case ZoneGrid.INTERACTIVE_LAYER:
+						mapTile = cell.interactiveLayerTileId;
+						break;
+					case ZoneGrid.UPPER_LAYER:
+						mapTile = cell.upperLayerTileId;
+						break;
+				}										
+				return mapTile;							
+			}	
+				
+			private function updateLayer(layer:Sprite, bytes:ByteArray):void
+			{
+				var loader:Loader = new Loader();
+				loader.loadBytes(bytes);
+				try {
+					layer.removeChildAt(0);
+				} catch (r:RangeError) {
+					// ignore
+				}
+				layer.addChild(loader);
+			}
+			
+			public function applyImageData(tileIndex:Array, tileImageData:Array):void
+			{
+				var surfaceIndex:int = tileIndex.indexOf(cell.surfaceLayerTileId);
+				var interactiveIndex:int = tileIndex.indexOf(cell.interactiveLayerTileId);
+				var upperIndex:int = tileIndex.indexOf(cell.upperLayerTileId);
+				var mapObjectIndex:int = 0;
+				if (mapObject!=null) {
+					mapObjectIndex = tileIndex.indexOf(mapObject.tileId);
+					updateLayer(getLayer(ZoneGrid.INTERACTIVE_LAYER), tileImageData[mapObjectIndex]);
+				}
+				if (surfaceIndex>=0) {
+					updateLayer(getLayer(ZoneGrid.SURFACE_LAYER), tileImageData[surfaceIndex]);
+				}
+				if (interactiveIndex>0) {
+					updateLayer(getLayer(ZoneGrid.INTERACTIVE_LAYER), tileImageData[interactiveIndex]);
+				}
+				if (upperIndex>0) {
+					updateLayer(getLayer(ZoneGrid.UPPER_LAYER), tileImageData[upperIndex]);
+				}
+			}
+			
+			public function viewLayer(layer:String):void
+			{
+				baseLayer.visible=false;
+				surfaceLayer.visible=(layer==ZoneGrid.SURFACE_LAYER);
+				interactiveLayer.visible=(layer==ZoneGrid.INTERACTIVE_LAYER);
+				upperLayer.visible=(layer==ZoneGrid.UPPER_LAYER);
+			}
+			
+			public function viewAllLayers():void
+			{
+				baseLayer.visible=true;
+				surfaceLayer.visible=true;
+				interactiveLayer.visible=true;
+				upperLayer.visible=true;
+			}
+		]]>
+	</mx:Script>
+</mx:GridItem>

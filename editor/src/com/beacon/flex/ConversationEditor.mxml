@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Panel xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="600" height="450" title="Conversation Editor">
+
+	<mx:Script>
+		<![CDATA[
+			import com.beacon.flex.events.ConversationEvent;
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import net.homeip.ConversationAnswer;
+			import net.homeip.ConversationExchange;
+			import mx.collections.IList;
+			import net.homeip.GetConversationByIdResponse;
+			import mx.managers.PopUpManager;
+			import mx.core.UIComponent;
+			
+			private static var dialog:ConversationEditor;
+			public var conversation:IList;
+						
+			public static function popup(parent:UIComponent):ConversationEditor
+			{
+				dialog = PopUpManager.createPopUp(parent, ConversationEditor, true) as ConversationEditor;
+				PopUpManager.centerPopUp(dialog);
+				return dialog;
+			}
+			
+			public function setConversation(conversation:IList):void
+			{
+				this.conversation = conversation;
+				var rootNode:ConversationNode = new ConversationNode();
+				rootNode.conversation=conversation;
+				rootNode.setExchange(conversation.getItemAt(0) as ConversationExchange);
+				conversationTree.dataProvider=rootNode;
+			}
+			
+			public function closeWindow():void
+			{
+				PopUpManager.removePopUp(dialog);
+				dialog=null;
+			}
+			
+			private function clickedItem():void
+			{
+				var node:ConversationNode = conversationTree.selectedItem as ConversationNode;
+				if (node.type == ConversationNode.TYPE_EXCHANGE) {
+					var exchange:ConversationExchange = node.data as ConversationExchange;
+					editor.text = exchange.npcDialog;
+					preconValueField.text="None";
+					actionValueField.text="None";
+					preconValueChangeButton.enabled=false;
+					actionValueChangeButton.enabled=false;
+					preconMenuButton.enabled=false;
+					actionMenuButton.enabled=false;
+					preconMenuButton.label="None";
+					actionMenuButton.label="None";
+				} else {
+					var answer:ConversationAnswer = node.data as ConversationAnswer;
+					editor.text = answer.answer;
+					preconValueField.text=new String(answer.preconditionValue);
+					actionValueField.text=new String(answer.actionValue);
+					preconValueChangeButton.enabled=true;
+					actionValueChangeButton.enabled=true;
+					preconMenuButton.enabled=true;
+					actionMenuButton.enabled=true;
+					preconMenuButton.label=new String(answer.precondition);
+					actionMenuButton.label=new String(answer.action);
+				}
+			}
+			
+			private function editorChanged():void
+			{
+				var node:ConversationNode = conversationTree.selectedItem as ConversationNode;
+				node.label = editor.text;
+				if (node.type == ConversationNode.TYPE_EXCHANGE) {
+					var exchange:ConversationExchange = node.data as ConversationExchange;
+					exchange.npcDialog = editor.text;
+				} else {
+					var answer:ConversationAnswer = node.data as ConversationAnswer;
+					answer.answer = editor.text;
+				}
+				callLater(conversationTree.invalidateList,[]);
+			}
+			
+			private function clickedAdd():void
+			{
+				var node:ConversationNode = conversationTree.selectedItem as ConversationNode;
+				var exchange:ConversationExchange;
+				var answer:ConversationAnswer;
+				if (node.type == ConversationNode.TYPE_EXCHANGE) {
+					exchange = node.data as ConversationExchange;
+					answer = new ConversationAnswer();
+					answer.id = -1;
+					answer.nextExchange = -1;
+					answer.action = -1;
+					answer.actionValue = -1;
+					answer.answer = "Empty!";
+					answer.answerToId = exchange.id;
+					answer.precondition = -1;
+					answer.preconditionValue = -1;
+					if (exchange.responses==null) {
+						exchange.responses = [];
+					}
+					exchange.responses.unshift(answer);
+					node.addAnswer(answer);
+				} else {
+					answer = node.data as ConversationAnswer;
+					if (node.children!=null && node.children.length>0) {
+						Alert.show("An NPC can have only one response per phrase from the Player");
+					} else {
+						exchange = new ConversationExchange();
+						exchange.id = -1;
+						exchange.npcDialog = "Empty!";
+						exchange.responses = null;
+						exchange.starter = false;
+						node.addExchange(exchange);
+					}
+				}				
+				callLater(conversationTree.invalidateList,[]);
+			}
+			
+			private function iconFunction(item:Object):Class
+			{
+				var node:ConversationNode = item as ConversationNode;
+				return node.icon;
+			}
+			
+			private function clickedSave():void
+			{
+				var myEvent:ConversationEvent = new ConversationEvent(ConversationEvent.SAVE);
+				myEvent.rootNode = conversationTree.dataProvider[0] as ConversationNode;
+				dispatchEvent(myEvent);
+				closeWindow();
+			}
+		]]>
+	</mx:Script>
+	<mx:Button label="Cancel" id="cancelButton" right="10" bottom="10" click="closeWindow()"/>
+	<mx:Button label="Save" right="81" bottom="10" id="saveButton" click="clickedSave()"/>
+	<mx:Tree id="conversationTree" left="10" top="10" right="268" bottom="40" labelField="label"
+		iconFunction="iconFunction" click="clickedItem()"></mx:Tree>
+	<mx:Panel width="250" layout="absolute" right="10" top="10" id="textEditor" title="Selected Text" bottom="263">
+		<mx:TextArea left="0" top="0" right="0" bottom="0" id="editor" wordWrap="true" editable="true" change="editorChanged()"/>
+	</mx:Panel>
+	<mx:Panel width="250" layout="absolute" right="10" id="preconditionPanel" title="Precondition" bottom="152" height="103">
+		<mx:Label text="Type:" left="10" top="10"/>
+		<mx:PopUpMenuButton label="None" id="preconMenuButton" left="55" top="8" right="10"/>
+		<mx:Label text="Value:" left="6" top="36"/>
+		<mx:Label text="None" right="86" left="55" top="36" id="preconValueField" enabled="false"/>
+		<mx:Button label="Change" right="10" top="34" id="preconValueChangeButton" enabled="false"/>
+	</mx:Panel>
+	<mx:Panel width="250" layout="absolute" right="10" id="actionPanel" title="Action" bottom="40" height="104">
+		<mx:Label text="Type:" left="10" top="10"/>
+		<mx:PopUpMenuButton label="None" id="actionMenuButton" left="55" top="8" right="10"/>
+		<mx:Label text="Value:" left="6" top="36"/>
+		<mx:Label text="None" right="86" left="55" top="36" id="actionValueField" enabled="false"/>
+		<mx:Button label="Change" right="10" top="34" id="actionValueChangeButton" enabled="false"/>
+	</mx:Panel>
+	<mx:Button label="Add To Conversation" left="10" bottom="10" id="addButton" enabled="{conversationTree.selectedItem!=null}" click="clickedAdd()"/>
+	
+</mx:Panel>

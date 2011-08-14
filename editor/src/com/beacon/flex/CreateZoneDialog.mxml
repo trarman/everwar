@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="348" height="200" title="Create New Zone" label="Button">
+	<mx:Script>
+		<![CDATA[
+			import mx.managers.PopUpManager;
+			import mx.core.UIComponent;
+			import com.beacon.flex.events.CreateZoneEvent;
+
+			[Bindable]			
+			private var okayToCreate:Boolean = false;
+			private static var dialog:CreateZoneDialog;
+
+			public static function popUp(parent:UIComponent):CreateZoneDialog
+			{
+				dialog = PopUpManager.createPopUp(parent,CreateZoneDialog,true) as CreateZoneDialog;
+				PopUpManager.centerPopUp(dialog);
+				return dialog;
+			}
+			
+			private function cancelPressed():void
+			{
+				var myEvent:CreateZoneEvent = new CreateZoneEvent(CreateZoneEvent.CANCEL);
+				myEvent.dialog=dialog;
+				dispatchEvent(myEvent);
+			}			
+			
+			private function okPressed():void
+			{
+				var myEvent:CreateZoneEvent = new CreateZoneEvent(CreateZoneEvent.CREATE);
+				myEvent.zoneName=zoneNameField.text;
+				myEvent.zoneWidth=widthStepper.value;
+				myEvent.zoneHeight=heightStepper.value;
+				myEvent.dialog=dialog;
+				dispatchEvent(myEvent);
+			}
+			
+			public function closeDialog():void
+			{
+				PopUpManager.removePopUp(dialog);
+			}
+				
+			private function updateOkayToCreate():void
+			{
+				okayToCreate=zoneNameField.length>0 &&
+								widthStepper.value+heightStepper.value>2;
+			}		
+		]]>
+	</mx:Script>
+	<mx:Button label="Cancel" right="10" bottom="10" id="cancelButton" click="cancelPressed()"/>
+	<mx:Button label="Create" right="81" bottom="10" id="createButton" enabled="{okayToCreate}" click="okPressed()"/>
+	<mx:Label text="Zone Name:" left="10" top="10"/>
+	<mx:TextInput left="92" right="10" top="8" id="zoneNameField" maxChars="60" change="updateOkayToCreate()"/>
+	<mx:Label text="Width:" left="42" top="36"/>
+	<mx:Label text="Height:" right="83" top="36"/>
+	<mx:NumericStepper id="widthStepper" value="1" minimum="1" maximum="100" stepSize="1" left="92" top="34" change="updateOkayToCreate()"/>
+	<mx:NumericStepper id="heightStepper" value="1" minimum="1" maximum="100" stepSize="1" top="34" right="10" change="updateOkayToCreate()"/>
+	<mx:Text text="The minimum size for any map is 2 squares.  There has to be a square to &quot;arrive&quot; at, and a square to &quot;exit&quot; from, and they can not be the same spot." left="10" right="10" top="62" bottom="40"/>
+	
+</mx:TitleWindow>

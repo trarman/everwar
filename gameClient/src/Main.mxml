@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" currentState="Login" xmlns:union="net.user1.reactor.ui.*"
+	  initialize="initializeListener(event)" xmlns:ns1="*" creationComplete="init()">
+	<mx:states>
+		<mx:State name="Login">
+			<mx:AddChild position="lastChild">
+				<mx:Image left="10" right="10" top="40" bottom="10" source="images/Niue_Coastline_compressed.jpg" maintainAspectRatio="false" scaleContent="true" autoLoad="true" id="loginBackdrop"/>
+			</mx:AddChild>
+			<mx:AddChild position="lastChild">
+
+			</mx:AddChild>
+			<mx:AddChild position="lastChild">
+				<mx:Label text="Isle of Everwar" fontSize="36" color="#E5F655" textAlign="center" fontFamily="Georgia" horizontalCenter="0" top="153" fontWeight="bold"/>
+			</mx:AddChild>
+		</mx:State>
+		<mx:State name="CharacterCreation">
+			<mx:AddChild position="lastChild">
+				<ns1:CharacterCreationWindow horizontalCenter="0" verticalCenter="0">
+				</ns1:CharacterCreationWindow>
+			</mx:AddChild>
+		</mx:State>
+		<mx:State name="InGame">
+			<mx:AddChild position="lastChild">
+				<ns1:GameScreen left="10" right="10" top="41" bottom="10" id="gameScreen">
+				</ns1:GameScreen>
+			</mx:AddChild>
+		</mx:State>
+		<mx:State name="Dead" basedOn="InGame">
+		</mx:State>
+		<mx:State name="CharacterSelection">
+			<mx:AddChild position="lastChild">
+				<ns1:CharacterSelectionWindow id="characterSelectionWindow" horizontalCenter="0" verticalCenter="0">
+				</ns1:CharacterSelectionWindow>
+			</mx:AddChild>
+		</mx:State>
+	</mx:states>	
+	
+	<mx:ApplicationControlBar left="0" right="0" top="0" id="appControlBar">
+	  <mx:Label text="Isle of Everwar" fontStyle="italic" fontWeight="bold" color="#25559E"/>
+	  <mx:Spacer width="20" />
+	  <union:AccountBar id="accountBar">
+	  </union:AccountBar>	  
+	  <mx:Spacer width="100%" />
+	  <union:ConnectionStatusPane reactor="{reactor}" />
+	</mx:ApplicationControlBar>
+<!--
+// =============================================================================
+// CSS STYLING
+// =============================================================================
+-->
+	<mx:Style>
+	  Application { backgroundColor: "0xDDDDDD"}
+	</mx:Style>
+
+	<mx:Script>
+		<![CDATA[
+			import net.user1.reactor.RoomSettings;
+			import com.beacon.rpg.ChatManager;
+			import com.beacon.rpg.music.EmbeddedMMLs;
+			import org.si.sion.SiONData;
+			import org.si.sion.SiONDriver;
+			import mx.events.StateChangeEvent;
+			import com.beacon.rpg.events.GameStateChangeEvent;
+			import mx.utils.Base64Decoder;
+			import com.beacon.rpg.ZoneRenderer;
+			import net.homeip.ZoneMap;
+			import mx.controls.Alert;
+			import net.user1.reactor.Attribute;
+			import mx.rpc.events.FaultEvent;
+			import net.user1.reactor.AttributeEvent;
+			import net.homeip.Tile;
+			import net.homeip.GetZoneMapById;
+			import net.homeip.GetTileById;
+			import net.homeip.GetZoneMapByIdResultEvent;
+			import net.homeip.GetTileByIdResultEvent;
+			import net.user1.reactor.RoomEvent;
+			import net.homeip.ZoneMapServiceService;
+			import net.homeip.TileServiceService;
+			import net.user1.reactor.IClient;
+			import net.user1.reactor.UserAccount;
+			import net.user1.reactor.Client;
+			import net.user1.reactor.AccountEvent;
+			import net.user1.reactor.Room;
+			import net.user1.reactor.RoomManagerEvent;
+			import mx.events.FlexEvent;
+			import net.user1.reactor.ReactorEvent;
+			import net.user1.reactor.Reactor;
+			[Bindable]
+			private var reactor:Reactor;
+			
+			public var me:IClient=null;
+			public var myAccount:UserAccount=null;
+			public var character:CharacterListItem;
+			
+			public var faelorStartingLocation:String = null;
+			public var faelorStartingPoint:Point = null;
+			public var auranStartingLocation:String = null;
+			public var auranStartingPoint:Point = null;
+			public var musicDriver:SiONDriver = null;
+			
+			public var globalChatRoom:Room;
+			
+// =============================================================================
+// FLEX INITIALIZE LISTENER
+// =============================================================================
+
+  /**
+   * Triggered when the Flex application has been initialized.
+   */
+  protected function initializeListener (event:FlexEvent):void {
+    reactor = new Reactor();
+    reactor.addEventListener(ReactorEvent.READY, reactorReadyListener);
+    reactor.addEventListener(ReactorEvent.CLOSE, reactorCloseListener);
+    reactor.connect("darkshade.homeip.net", 9100);
+    addEventListener(StateChangeEvent.CURRENT_STATE_CHANGE, stateChangeListener);
+    
+    // Start some music
+    musicDriver = new SiONDriver();
+    var bgm1:SiONData = musicDriver.compile(EmbeddedMMLs.TITLE_MUSIC);
+    musicDriver.play(bgm1);
+  }
+// =============================================================================
+// REACTOR READY LISTENER
+// =============================================================================
+
+  /**
+   * Triggered when Reactor successfully connects to Union server.
+   */
+  protected function reactorReadyListener (e:ReactorEvent):void {
+  	accountBar.accountManager = reactor.getAccountManager();
+  	reactor.getAccountManager().addEventListener(AccountEvent.LOGIN_RESULT, loggedIn);
+  	reactor.getAccountManager().addEventListener(AccountEvent.LOGOFF, loggedOff);
+  	// Seed starting points - TODO: Pull these from server
+  	faelorStartingLocation = "Faelor Landing";
+  	auranStartingLocation = "Auran Landing";
+  	faelorStartingPoint = new Point(9*48,5*48);
+  	auranStartingPoint = new Point(6*48,6*48);
+  }
+
+// =============================================================================
+// REACTOR CLOSE LISTENER
+// =============================================================================
+
+  /**
+   * Triggered when Reactor's connection to Union server is terminated.
+   */
+  protected function reactorCloseListener (e:ReactorEvent):void {
+  	accountBar.accountManager = null;
+  	if (gameScreen!=null) {
+  		gameScreen.logoff();
+  	}
+  }
+
+  private function loggedIn(event:AccountEvent):void
+  {
+  	if (event.getAccount()!=null) {
+	  	trace(event.getAccount().getUserID()+" has logged in");
+	  	myAccount = event.getAccount();
+	  	me = myAccount.getClient();
+  		currentState="CharacterSelection";
+	    // Join global chat room, creating it if it doesn't exist
+		var settings:RoomSettings = new RoomSettings();
+		settings.removeOnEmpty = true;
+	    globalChatRoom = reactor.getRoomManager().createRoom("chatRoom",settings);
+	    globalChatRoom.join();
+	}
+  }
+  
+  private function loggedOff(event:AccountEvent):void
+  {
+  	trace(event.getAccount().getUserID()+" has logged off");
+  	myAccount = null;
+  	me = null;
+  	currentState = "Login";
+  }
+  
+  private function stateChangeListener(event:StateChangeEvent):void
+  {
+  	if (event.newState=="InGame") {
+  		musicDriver.stop();
+  		gameScreen.joinGame(reactor,character);
+  	} else if (event.newState=="CharacterSelection") {
+  		musicDriver.fadeOut(10);
+  		callLater(characterSelectionWindow.loadCharacters,[]);
+  	} else {
+  		//if (musicDriver.isPlaying) {
+  		//	musicDriver.fadeOut(10);
+  		//}
+  	}
+  }
+		]]>
+	</mx:Script>
+</mx:Application>

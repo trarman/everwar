@@ -1,0 +1,266 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Everwar Chat</title>
+<!--Static CSS-->
+<link href="chatStyle.css" rel="stylesheet" type="text/css"/>
+<!--Dynamic CSS-->
+<style type="text/css">
+#inputField {
+  display:none;
+}
+#loginField {
+  display:none;
+}
+</style>
+ 
+<!--Load the Orbiter JavaScript library-->
+<script type="text/javascript" src="OrbiterMicro_1.1.0.483_Beta1_min.js"></script>
+ 
+<!--Chat code-->
+<script type="text/javascript">
+//==============================================================================
+// VARIABLES
+//==============================================================================
+var orbiter;
+var msgManager;
+var UPC = net.user1.orbiter.UPC;
+var username;
+const roomID = "chatRoom";
+const CHAT_MESSAGE = "CHAT_MESSAGE";
+
+//==============================================================================
+// INITIALIZATION
+//==============================================================================
+function init () {
+  // Create the Orbiter instance, used to connect to and communicate with Union
+  orbiter = new net.user1.orbiter.Orbiter();
+ 
+  // If required JavaScript capabilities are missing, abort
+  if (!orbiter.getSystem().isJavaScriptCompatible()) {
+    displayChatMessage("Your browser is not supported.");
+    return;
+  }
+ 
+  // Register for Orbiter's connection events
+  orbiter.addEventListener(net.user1.orbiter.OrbiterEvent.READY, readyListener, this);
+  orbiter.addEventListener(net.user1.orbiter.OrbiterEvent.CLOSE, closeListener, this);
+ 
+  // Register for incoming messages from Union
+  msgManager = orbiter.getMessageManager();
+  msgManager.addMessageListener(UPC.JOINED_ROOM, joinedRoomListener, this);
+  msgManager.addMessageListener(UPC.CLIENT_ADDED_TO_ROOM, clientAddedListener, this);
+  msgManager.addMessageListener(UPC.CLIENT_REMOVED_FROM_ROOM, clientRemovedListener, this);
+  msgManager.addMessageListener(CHAT_MESSAGE, chatMessageListener, this, [roomID]);
+  msgManager.addMessageListener(UPC.LOGIN_RESULT, loginListener, this);
+  msgManager.addMessageListener(UPC.LEAVE_ROOM_RESULT, leaveRoomListener, this);
+  msgManager.addMessageListener(UPC.ROOM_SNAPSHOT, roomSnapshotListener, this);
+  
+  // Connect to Union
+  orbiter.connect("darkshade.homeip.net", 9100);
+  displayChatMessage("Connecting to Everwar...");
+}
+
+//==============================================================================
+// VISUALS
+//==============================================================================
+// Display login field
+function showLogin() {
+  var logoutButton = document.getElementById("logout");
+  logoutButton.style.display = "none";
+  var loginField = document.getElementById("loginField");
+  loginField.style.display = "inherit";
+}
+
+// Hide the login field
+function hideLogin() {
+  var loginField = document.getElementById("loginField");
+  loginField.style.display = "none";
+  var logoutButton = document.getElementById("logout");
+  logoutButton.style.display = "inherit";
+}
+
+// Display the text input field
+function showInput() {
+  var inputField = document.getElementById("inputField");
+  inputField.style.display = "inherit";
+}
+
+// Hide the text input field
+function hideInput() {
+  var inputField = document.getElementById("inputField");
+  inputField.style.display = "none";
+  var logoutButton = document.getElementById("logout");
+  logoutButton.style.display = "none";
+}
+
+//==============================================================================
+// ORBITER EVENT LISTENERS
+//==============================================================================
+// Triggered when the connection is ready
+function readyListener (e) {
+  displayChatMessage("Connected.");
+  // show the login field
+  showLogin();
+}
+
+// Called when successfully logged in  
+function joinRoom () {
+  displayChatMessage("Joining chat room...");
+ 
+  // Create the chat room
+  msgManager.sendUPC(UPC.CREATE_ROOM, roomID);
+  // Join the chat room
+  msgManager.sendUPC(UPC.JOIN_ROOM, roomID);
+}
+ 
+// Triggered when the connection is closed
+function closeListener (e) {
+  displayChatMessage("Connection closed.");
+}
+ 
+//==============================================================================
+// CHAT ROOM EVENT LISTENER
+//==============================================================================
+// Triggered when a JOINED_ROOM message is received
+function joinedRoomListener () {
+  // display chat input field
+  showInput();
+  // set the focus to the text box
+  document.getElementById("outgoing").focus();
+  // Announce your presence
+  msgManager.sendUPC(UPC.SEND_MESSAGE_TO_ROOMS, CHAT_MESSAGE, roomID, "true", "",
+    username+" has joined the chat");
+}
+ 
+// Triggered when another client joins the chat room
+function clientAddedListener (roomID, clientID) {
+  displayChatMessage("User" + clientID + " joined the chat.");
+}
+ 
+// Triggered when another client leaves the chat room
+function clientRemovedListener (roomID, clientID) {
+  displayChatMessage("User" + clientID + " left the chat.");
+}
+ 
+// Triggered when a room is joined
+function roomSnapshotListener (requestID, fromRoomID, occupantCount) {
+  displayChatMessage("Total people online:"+occupantCount);
+}
+
+//==============================================================================
+// CHAT SENDING AND RECEIVING
+//==============================================================================
+// Sends a chat message to everyone in the chat room
+function sendMessage () {
+  var outgoing = document.getElementById("outgoing");
+  if (outgoing.value.length > 0) {
+    msgManager.sendUPC(UPC.SEND_MESSAGE_TO_ROOMS, CHAT_MESSAGE, roomID, "true", "",
+	  username+" : "+outgoing.value);
+    outgoing.value = "";
+    // Focus text field again after submission (required for IE8 only)
+    setTimeout(function () {outgoing.focus();}, 10);
+  }
+}
+ 
+// Triggered when a chat message is received
+function chatMessageListener (fromClientID, message) {
+  var date = new Date();
+  var timeString="["+date.getHours()+":"+date.getMinutes()+":"+date.getSeconds()+"] ";
+  displayChatMessage(timeString+message);
+}
+ 
+// Displays a single chat message
+function displayChatMessage (message) {
+  // Make the new chat message element
+  var msg = document.createElement("span");
+  msg.appendChild(document.createTextNode(message));
+  msg.appendChild(document.createElement("br"));
+ 
+  // Append the new message to the chat
+  var chatPane = document.getElementById("chatPane");
+  chatPane.appendChild(msg);
+ 
+  // Trim the chat to 500 messages
+  if (chatPane.childNodes.length > 500) {
+    chatPane.removeChild(chatPane.firstChild);
+  }
+  chatPane.scrollTop = chatPane.scrollHeight;
+}
+
+//==============================================================================
+// ACCOUNT HANDLING
+//==============================================================================
+// Called when log in attempted
+function login () {
+  username = document.getElementById("username").value;
+  var password = document.getElementById("password").value;
+  msgManager.sendUPC(UPC.LOGIN, username, password);  
+}
+
+// Triggered when login result received
+function loginListener (fromUserID, status) {
+  if (status == "SUCCESS") {
+    displayChatMessage("Logged in as "+username);
+	// Join chat room
+	joinRoom();
+    // hide login, show chat input
+	hideLogin();
+  } else {
+    displayChatMessage("Login:"+status);
+  }
+}
+
+// Logout cleanly (optional)
+function logout() {
+  // Hide text input
+  hideInput();
+  // Announce your departure
+  msgManager.sendUPC(UPC.SEND_MESSAGE_TO_ROOMS, CHAT_MESSAGE, roomID, "true", "",
+    username+" left");
+  msgManager.sendUPC(UPC.LEAVE_ROOM, roomID);
+}
+
+// Triggered when user leaves the chat room
+function leaveRoomListener(fromRoomID, status) {
+  if (status == "SUCCESS") {
+	  // Activate logout action
+	  var password = document.getElementById("password").value; // still set
+	  msgManager.sendUPC(UPC.LOGOFF, username, password);
+	  orbiter.disconnect();
+  } else {
+    displayChatMessage("Leave Room:"+status);
+  }
+}
+
+</script>
+</head>
+ 
+<body onload="init()">
+<!--For polish-->
+<div id="main">
+<button id="logout" onclick="logout()" title="Logout">&nbsp;</button>
+<div id="caption">Everwar Chat</div>
+<div id="icon">&nbsp;</div>
+
+<!--Contains the incoming chat messages-->
+<div id="chatPane"></div>
+ 
+<!--The outgoing chat form-->
+<div id="sender">
+  <div id="inputField">
+    Your message: 
+    <input type="text" id="outgoing" onkeydown="if (event.keyCode == 13) sendMessage()"/>
+    <input type="submit" value="Send" onclick="sendMessage()"/>
+  </div>
+  <div id="loginField">
+    <input type="text" id="username" 
+      onFocus="if(this.value=='username')this.value=''" value="username"/>
+    <input type="password" id="password"
+      onFocus="if(this.value=='password')this.value=''" value="password" 
+	  onkeydown="if (event.keyCode ==13) login()"/>
+    <input type="submit" value="Login" onclick="login()"/>
+  </div> 
+</div>
+</body>
+</html>

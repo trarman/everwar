@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:ns1="http://cxf.apache.org/bindings/xformat" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://character.ws.rpg.beacon.com/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="CharacterServiceService" targetNamespace="http://character.ws.rpg.beacon.com/">
+  <wsdl:types>
+    <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="unqualified" targetNamespace="http://character.ws.rpg.beacon.com/" version="1.0">
+<xs:element name="addCharacter" type="tns:addCharacter"/>
+<xs:element name="addCharacterResponse" type="tns:addCharacterResponse"/>
+<xs:element name="getCharacterById" type="tns:getCharacterById"/>
+<xs:element name="getCharacterByIdResponse" type="tns:getCharacterByIdResponse"/>
+<xs:element name="getCharactersForAccount" type="tns:getCharactersForAccount"/>
+<xs:element name="getCharactersForAccountResponse" type="tns:getCharactersForAccountResponse"/>
+<xs:element name="removeCharacterById" type="tns:removeCharacterById"/>
+<xs:element name="removeCharacterByIdResponse" type="tns:removeCharacterByIdResponse"/>
+<xs:element name="updateCharacter" type="tns:updateCharacter"/>
+<xs:element name="updateCharacterResponse" type="tns:updateCharacterResponse"/>
+<xs:complexType name="getCharactersForAccount">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="account" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="getCharactersForAccountResponse">
+    <xs:sequence>
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="characters" type="tns:rpgCharacter"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="rpgCharacter">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="account" type="xs:string"/>
+      <xs:element minOccurs="0" name="agility" type="xs:int"/>
+      <xs:element minOccurs="0" name="avatar" type="xs:base64Binary"/>
+      <xs:element minOccurs="0" name="characterId" type="xs:int"/>
+      <xs:element minOccurs="0" name="charm" type="xs:int"/>
+      <xs:element minOccurs="0" name="faction" type="xs:string"/>
+      <xs:element minOccurs="0" name="health" type="xs:int"/>
+      <xs:element minOccurs="0" name="intelligence" type="xs:int"/>
+      <xs:element minOccurs="0" name="location" type="xs:string"/>
+      <xs:element minOccurs="0" name="name" type="xs:string"/>
+      <xs:element minOccurs="0" name="observation" type="xs:int"/>
+      <xs:element minOccurs="0" name="strength" type="xs:int"/>
+      <xs:element minOccurs="0" name="x" type="xs:int"/>
+      <xs:element minOccurs="0" name="y" type="xs:int"/>
+      <xs:element minOccurs="0" name="zoneId" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="addCharacter">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="character" type="tns:rpgCharacter"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="addCharacterResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="id" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="removeCharacterById">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="id" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="removeCharacterByIdResponse">
+    <xs:sequence>
+      <xs:element name="success" type="xs:boolean"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="getCharacterById">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="id" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="getCharacterByIdResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="character" type="tns:rpgCharacter"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="updateCharacter">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="character" type="tns:rpgCharacter"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="updateCharacterResponse">
+    <xs:sequence>
+      <xs:element name="success" type="xs:boolean"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+  </wsdl:types>
+  <wsdl:message name="removeCharacterById">
+    <wsdl:part element="tns:removeCharacterById" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getCharactersForAccount">
+    <wsdl:part element="tns:getCharactersForAccount" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getCharacterById">
+    <wsdl:part element="tns:getCharacterById" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="addCharacterResponse">
+    <wsdl:part element="tns:addCharacterResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getCharacterByIdResponse">
+    <wsdl:part element="tns:getCharacterByIdResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="updateCharacterResponse">
+    <wsdl:part element="tns:updateCharacterResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getCharactersForAccountResponse">
+    <wsdl:part element="tns:getCharactersForAccountResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="addCharacter">
+    <wsdl:part element="tns:addCharacter" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="removeCharacterByIdResponse">
+    <wsdl:part element="tns:removeCharacterByIdResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="updateCharacter">
+    <wsdl:part element="tns:updateCharacter" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="ICharacterService">
+    <wsdl:operation name="getCharactersForAccount">
+      <wsdl:input message="tns:getCharactersForAccount" name="getCharactersForAccount">
+    </wsdl:input>
+      <wsdl:output message="tns:getCharactersForAccountResponse" name="getCharactersForAccountResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="addCharacter">
+      <wsdl:input message="tns:addCharacter" name="addCharacter">
+    </wsdl:input>
+      <wsdl:output message="tns:addCharacterResponse" name="addCharacterResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="removeCharacterById">
+      <wsdl:input message="tns:removeCharacterById" name="removeCharacterById">
+    </wsdl:input>
+      <wsdl:output message="tns:removeCharacterByIdResponse" name="removeCharacterByIdResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getCharacterById">
+      <wsdl:input message="tns:getCharacterById" name="getCharacterById">
+    </wsdl:input>
+      <wsdl:output message="tns:getCharacterByIdResponse" name="getCharacterByIdResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="updateCharacter">
+      <wsdl:input message="tns:updateCharacter" name="updateCharacter">
+    </wsdl:input>
+      <wsdl:output message="tns:updateCharacterResponse" name="updateCharacterResponse">
+    </wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="CharacterServiceServiceSoapBinding" type="tns:ICharacterService">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="getCharactersForAccount">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getCharactersForAccount">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getCharactersForAccountResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="addCharacter">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="addCharacter">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="addCharacterResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="removeCharacterById">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="removeCharacterById">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="removeCharacterByIdResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getCharacterById">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getCharacterById">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getCharacterByIdResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="updateCharacter">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="updateCharacter">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="updateCharacterResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="CharacterServiceService">
+    <wsdl:port binding="tns:CharacterServiceServiceSoapBinding" name="CharacterServicePort">
+      <soap:address location="http://darkshade.homeip.net/rpgEditorServer/characters"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

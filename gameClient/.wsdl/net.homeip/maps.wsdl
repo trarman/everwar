@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:ns1="http://cxf.apache.org/bindings/xformat" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://map.ws.editor.rpg.beacon.com/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="ZoneMapServiceService" targetNamespace="http://map.ws.editor.rpg.beacon.com/">
+  <wsdl:types>
+    <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="unqualified" targetNamespace="http://map.ws.editor.rpg.beacon.com/" version="1.0">
+<xs:element name="addZoneMap" type="tns:addZoneMap"/>
+<xs:element name="addZoneMapResponse" type="tns:addZoneMapResponse"/>
+<xs:element name="getZoneMapById" type="tns:getZoneMapById"/>
+<xs:element name="getZoneMapByIdResponse" type="tns:getZoneMapByIdResponse"/>
+<xs:element name="getZones" type="tns:getZones"/>
+<xs:element name="getZonesResponse" type="tns:getZonesResponse"/>
+<xs:element name="updateZoneMapById" type="tns:updateZoneMapById"/>
+<xs:element name="updateZoneMapByIdResponse" type="tns:updateZoneMapByIdResponse"/>
+<xs:complexType name="getZoneMapById">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="id" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="getZoneMapByIdResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="zoneMap" type="tns:zoneMap"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="zoneMap">
+    <xs:sequence>
+      <xs:element name="height" type="xs:int"/>
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="mapData" nillable="true" type="tns:zoneCell"/>
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="mapObjects" nillable="true" type="tns:mapObject"/>
+      <xs:element minOccurs="0" name="music" type="xs:string"/>
+      <xs:element name="width" type="xs:int"/>
+      <xs:element name="zoneId" type="xs:int"/>
+      <xs:element minOccurs="0" name="zoneName" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="zoneCell">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="interactiveLayerTileId" type="xs:int"/>
+      <xs:element minOccurs="0" name="surfaceLayerTileId" type="xs:int"/>
+      <xs:element minOccurs="0" name="upperLayerTileId" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="mapObject">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="id" type="xs:int"/>
+      <xs:element minOccurs="0" name="referenceId" type="xs:int"/>
+      <xs:element minOccurs="0" name="tileId" type="xs:int"/>
+      <xs:element minOccurs="0" name="type" type="xs:int"/>
+      <xs:element minOccurs="0" name="x" type="xs:int"/>
+      <xs:element minOccurs="0" name="y" type="xs:int"/>
+      <xs:element minOccurs="0" name="zoneId" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="getZones">
+    <xs:sequence/>
+  </xs:complexType>
+<xs:complexType name="getZonesResponse">
+    <xs:sequence>
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="zoneList" type="tns:zoneMapListItem"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="zoneMapListItem">
+    <xs:sequence>
+      <xs:element name="id" type="xs:int"/>
+      <xs:element minOccurs="0" name="name" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="addZoneMap">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="name" type="xs:string"/>
+      <xs:element minOccurs="0" name="width" type="xs:int"/>
+      <xs:element minOccurs="0" name="height" type="xs:int"/>
+      <xs:element minOccurs="0" name="music" type="xs:string"/>
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="mapData" type="tns:zoneCell"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="addZoneMapResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="id" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="updateZoneMapById">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="id" type="xs:int"/>
+      <xs:element minOccurs="0" name="name" type="xs:string"/>
+      <xs:element minOccurs="0" name="width" type="xs:int"/>
+      <xs:element minOccurs="0" name="height" type="xs:int"/>
+      <xs:element minOccurs="0" name="music" type="xs:string"/>
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="mapData" type="tns:zoneCell"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="updateZoneMapByIdResponse">
+    <xs:sequence>
+      <xs:element name="success" type="xs:boolean"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+  </wsdl:types>
+  <wsdl:message name="addZoneMap">
+    <wsdl:part element="tns:addZoneMap" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getZoneMapByIdResponse">
+    <wsdl:part element="tns:getZoneMapByIdResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getZones">
+    <wsdl:part element="tns:getZones" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="updateZoneMapById">
+    <wsdl:part element="tns:updateZoneMapById" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getZonesResponse">
+    <wsdl:part element="tns:getZonesResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="updateZoneMapByIdResponse">
+    <wsdl:part element="tns:updateZoneMapByIdResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="addZoneMapResponse">
+    <wsdl:part element="tns:addZoneMapResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getZoneMapById">
+    <wsdl:part element="tns:getZoneMapById" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="IZoneMapService">
+    <wsdl:operation name="getZoneMapById">
+      <wsdl:input message="tns:getZoneMapById" name="getZoneMapById">
+    </wsdl:input>
+      <wsdl:output message="tns:getZoneMapByIdResponse" name="getZoneMapByIdResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getZones">
+      <wsdl:input message="tns:getZones" name="getZones">
+    </wsdl:input>
+      <wsdl:output message="tns:getZonesResponse" name="getZonesResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="addZoneMap">
+      <wsdl:input message="tns:addZoneMap" name="addZoneMap">
+    </wsdl:input>
+      <wsdl:output message="tns:addZoneMapResponse" name="addZoneMapResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="updateZoneMapById">
+      <wsdl:input message="tns:updateZoneMapById" name="updateZoneMapById">
+    </wsdl:input>
+      <wsdl:output message="tns:updateZoneMapByIdResponse" name="updateZoneMapByIdResponse">
+    </wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="ZoneMapServiceServiceSoapBinding" type="tns:IZoneMapService">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="getZoneMapById">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getZoneMapById">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getZoneMapByIdResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getZones">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getZones">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getZonesResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="addZoneMap">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="addZoneMap">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="addZoneMapResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="updateZoneMapById">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="updateZoneMapById">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="updateZoneMapByIdResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="ZoneMapServiceService">
+    <wsdl:port binding="tns:ZoneMapServiceServiceSoapBinding" name="ZoneMapServicePort">
+      <soap:address location="http://darkshade.homeip.net/rpgEditorServer/maps"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

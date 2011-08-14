@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="220" height="150" backgroundAlpha="0.4" color="#F5F815" backgroundColor="#722020">
+	<mx:Script>
+		<![CDATA[
+			import com.beacon.rpg.Faction;
+			
+			[Bindable]
+			public var charName:String = "No one";
+			public var charId:Number = -1;
+			[Bindable]
+			public var location:String = "No where";
+			[Bindable]
+			public var obs:Number = 1;
+			[Bindable]
+			public var str:Number = 1;
+			[Bindable]
+			public var int:Number = 1;
+			[Bindable]
+			public var agi:Number = 1;
+			[Bindable]
+			public var cha:Number = 1;
+			[Bindable]
+			public var avatar:ByteArray = null;
+			public var avatar_Encoded:String = null;
+			public var position:Point = null;
+			[Bindable]
+			public var health:Number = 1;
+			[Bindable]
+			public var maxHealth:Number = Math.pow(str+agi,2);
+			public var factionCode:uint;
+			public var zoneId:Number = -1;
+			
+			public function updateHealthBar():void
+			{
+				healthBar.setProgress(health,maxHealth);
+			}
+			
+			public function loadCharacter(character:CharacterListItem):void
+			{
+				charName = character.charName;
+				charId = character.charId;
+				location = character.location;
+				obs = character.obs;
+				str = character.str;
+				int = character.int;
+				agi = character.agi;
+				cha = character.cha;
+				avatar = character.avatar;
+				avatar_Encoded = character.avatarEnc;
+				position = new Point(character.posx, character.posy);
+				health = maxHealth;
+				factionCode = Faction.parseFactionName(character.faction);
+				zoneId = character.zoneId;
+			}
+			
+		]]>
+	</mx:Script>
+
+	<mx:Image id="avatarImage" left="10" top="10" width="48" height="48" source="{avatar}"/>
+	<mx:Label text="{charName}" fontWeight="bold" id="characterName" left="66" top="15" right="10"/>
+	<mx:Label text="Observation:" left="10" top="66"/>
+	<mx:Label x="30" y="80" text="Strength:"/>
+	<mx:Label x="12" y="94" text="Intelligence:"/>
+	<mx:Label x="44" y="108" text="Agility:"/>
+	<mx:Label x="40" y="122" text="Charm:"/>
+	<mx:Label y="66" text="{obs}" id="observation" right="10" left="95"/>
+	<mx:Label y="80" text="{str}" id="strength" left="95" right="10"/>
+	<mx:Label y="94" text="{int}" id="intelligence" left="95" right="10"/>
+	<mx:Label y="108" text="{agi}" id="agility" left="95" right="10"/>
+	<mx:Label y="122" text="{cha}" id="charm" left="95" right="10"/>
+	<mx:Label text="{location}" id="currentZone" left="66" top="36" right="10"/>
+	<mx:ProgressBar labelPlacement="right" label="Health" id="healthBar" left="66" mode="manual" top="0" width="150" fontWeight="normal" fontStyle="italic" fontSize="9"/>
+	
+</mx:Canvas>

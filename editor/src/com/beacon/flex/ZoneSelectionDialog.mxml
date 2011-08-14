@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="250" height="360" title="Select a Zone Map">
+	<mx:Script>
+		<![CDATA[
+			import mx.managers.PopUpManager;
+			import com.beacon.flex.events.ZoneSelectedEvent;
+			import mx.core.UIComponent;
+			
+			private static var dialog:ZoneSelectionDialog;
+			
+			public static function popup(parent:UIComponent):ZoneSelectionDialog
+			{
+				dialog = PopUpManager.createPopUp(parent,ZoneSelectionDialog,true) as ZoneSelectionDialog;
+				PopUpManager.centerPopUp(dialog);
+				return dialog;				
+			}
+			private function cancelPressed():void
+			{
+				var myEvent:ZoneSelectedEvent = new ZoneSelectedEvent(ZoneSelectedEvent.CANCEL);
+				myEvent.dialog=dialog;
+				dispatchEvent(myEvent);
+			}			
+			
+			private function okPressed():void
+			{
+				var myEvent:ZoneSelectedEvent = new ZoneSelectedEvent(ZoneSelectedEvent.OPEN);
+				myEvent.zoneName=zoneMapList.selectedItem.name;
+				myEvent.zoneId=zoneMapList.selectedItem.id;
+				myEvent.dialog=dialog;
+				dispatchEvent(myEvent);
+			}
+			
+			public function closeDialog():void
+			{
+				PopUpManager.removePopUp(dialog);
+			}
+		]]>
+	</mx:Script>
+	<mx:List id="zoneMapList" left="10" right="10" top="10" bottom="40" labelField="name" allowMultipleSelection="false"></mx:List>
+	<mx:Button label="Cancel" right="10" bottom="10" id="cancelButton" click="cancelPressed()"/>
+	<mx:Button label="Open" id="openButton" right="81" bottom="10" click="okPressed()" enabled="{zoneMapList.selectedItem!=null}"/>
+</mx:TitleWindow>

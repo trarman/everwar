@@ -1,0 +1,624 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:union="net.user1.reactor.ui.*" xmlns:n1="com.beacon.rpg.components.*" 
+		width="100%" height="100%" initialize="init()">
+	<mx:Script>
+		<![CDATA[
+			import net.user1.reactor.ModuleType;
+			import net.user1.reactor.RoomModules;
+			import net.user1.reactor.RoomSettings;
+			import org.si.sion.SiONDriver;
+			import org.si.sion.SiONData;
+			import net.homeip.mapObjectService.MapObject;
+			import net.homeip.mapObjectService.GetMapObjectsForZoneId;
+			import net.homeip.mapObjectService.GetMapObjectsForZoneIdResultEvent;
+			import net.homeip.mapObjectService.MapObjectServiceService;
+			import com.beacon.rpg.components.InteractiveDialog;
+			import mx.graphics.codec.PNGEncoder;
+			import mx.collections.ArrayCollection;
+			import com.beacon.rpg.BaseObject;
+			import net.homeip.ZoneMap;
+			import net.user1.reactor.RoomManagerEvent;
+			import mx.core.Application;
+			import mx.controls.Alert;
+			import net.homeip.Tile;
+			import net.user1.reactor.IClient;
+			import net.homeip.GetZoneMapById;
+			import net.homeip.GetTileById;
+			import net.homeip.GetZoneMapByIdResultEvent;
+			import net.homeip.GetTileByIdResultEvent;
+			import mx.rpc.events.FaultEvent;
+			import net.flashpunk.utils.Key;
+			import com.beacon.rpg.events.ZoneRendererEvent;
+			import com.beacon.rpg.ZoneRenderer;
+			import net.homeip.ZoneMapServiceService;
+			import net.homeip.TileServiceService;
+			import net.user1.reactor.Client;
+			import net.user1.reactor.AttributeEvent;
+			import net.user1.reactor.Attribute;
+			import net.user1.reactor.RoomEvent;
+			import mx.utils.Base64Decoder;
+			import net.user1.reactor.Room;
+			import net.user1.reactor.Reactor;
+			import com.beacon.rpg.ChatManager;
+			import com.beacon.rpg.GameCamera;
+			import mx.containers.Panel;
+			
+			private var chatManager:ChatManager;
+			private var globalChatManager:ChatManager;
+			private var playerSprite:BaseObject;
+			private var otherSprites:Object;
+			private var baseObjectsToAdd:ArrayCollection;
+			private var baseObjectsToRemove:ArrayCollection;
+			private var miniMaplocator:Sprite;
+			private var room:Room;
+			private var camera:GameCamera = null;
+			public var pos:Point = new Point(0,0);
+						
+			private var tileService:TileServiceService;
+			private var zoneService:ZoneMapServiceService;
+			private var mapObjectService:MapObjectServiceService;					
+									
+			private var progressWindow:ProgressWindow;
+			private var zoneRenderer:ZoneRenderer;
+
+			private var surfaceBitmap:Bitmap;
+			
+			private var me:IClient;
+			private var reactor:Reactor;
+			private var zone:ZoneMap;
+			
+			private var ready:Boolean = false;
+			public var frozen:Boolean = false;  // Should we allow player to move?
+
+			private function init():void
+			{
+				tileService = new TileServiceService();
+				tileService.addgetTileByIdEventListener(fetchTileResultHandler);
+				
+				zoneService = new ZoneMapServiceService();
+				zoneService.addgetZoneMapByIdEventListener(getZoneByIdHandler);
+				zoneService.addZoneMapServiceServiceFaultEventListener(zoneServiceFaultHandler);
+
+				mapObjectService = new MapObjectServiceService();
+				mapObjectService.addgetMapObjectsForZoneIdEventListener(getMapObjectsByZoneIdHandler);
+				
+			}
+			
+			public function logoff():void
+			{
+				room = null;
+			}
+			
+			public function joinGame(reactor:Reactor, character:CharacterListItem):void
+			{
+				ready = false;
+				mapCanvas.validateNow();
+				charInfoPanel.loadCharacter(character);
+				this.reactor = reactor;
+				
+				for each (var client:Client in reactor.getClientManager().getClients()) {
+					if (client.isSelf()) {
+						me=client;
+						me.setAttribute("avatar",character.avatarEnc);
+						me.setAttribute("name",character.charName);
+						me.setAttribute("agility",new String(character.agi));
+						me.setAttribute("charm",new String(character.cha));
+						me.setAttribute("faction",character.faction);
+						me.setAttribute("location",character.location);
+						me.setAttribute("intelligence",new String(character.int));
+						me.setAttribute("observation",new String(character.obs));
+						me.setAttribute("strength",new String(character.str));				
+					}
+				}				
+
+				changeRooms();
+				
+			    // Register for room-removal notification
+			    reactor.getRoomManager().addEventListener(RoomManagerEvent.ROOM_REMOVED,
+			                                              roomRemovedListener);
+			    reactor.getRoomManager().addEventListener(RoomEvent.JOIN_RESULT, roomJoinedHandler);
+			    reactor.getRoomManager().addEventListener(RoomManagerEvent.CREATE_ROOM_RESULT, roomCreatedHandler);			    
+
+				// Hook into global chat room and announce presence
+				globalChatManager = new ChatManager(reactor, Application.application.globalChatRoom, chatInput, chatPanel, me.getAccount().getUserID());
+				globalChatManager.sendMessage(me.getAccount().getUserID()+" is online");
+			}
+
+			public function changeRooms():void
+			{
+				ready = false;
+				var unseenObjectId:Number = 641; // Default
+				if (room!=null) {
+					unseenObjectId = new Number(room.getAttribute("unseenObjectId"));
+					room.removeMessageListener("NPC_POSITION", npcHandler);
+					room.removeEventListener(RoomEvent.ADD_OCCUPANT, addOccupantListener);
+					room.removeEventListener(RoomEvent.REMOVE_OCCUPANT, removeOccupantListener);
+					room.leave();
+					me.setAttribute("location",charInfoPanel.location);
+					surfaceBitmap.bitmapData.dispose();
+				}
+				removeEventListener(Event.ENTER_FRAME, enterFrame);
+				surfaceBitmap=null;
+				miniMap.source=null;
+				playerSprite=null;
+				mapCanvas.removeAllChildren();
+				if (miniMaplocator!=null && miniMaplocator.parent!=null) {
+					miniMaplocator.parent.removeChild(miniMaplocator);
+				}
+				
+				var settings:RoomSettings = new RoomSettings();
+				settings.removeOnEmpty = true;
+				var modules:RoomModules = new RoomModules();
+				modules.addModule("com.beacon.rpg.server.EverwarRoomModule",ModuleType.CLASS);
+				var attributes:XML = <ATTRIBUTES>
+									      <ATTRIBUTE>
+									        <NAME>zoneId</NAME>
+									        <VALUE>{charInfoPanel.zoneId}</VALUE>
+									        <SHARED>true</SHARED>
+									        <PERSISTENT>false</PERSISTENT>
+									        <IMMUTABLE>false</IMMUTABLE>
+									      </ATTRIBUTE>
+									    </ATTRIBUTES>
+				room = reactor.getRoomManager().createRoom(charInfoPanel.location,settings,attributes,modules);
+				// If there is no unseenObjectId set already, share the last value we had
+				if (room.getAttribute("unseenObjectId")==null || room.getAttribute("unseenObjectId")=="") {
+					room.setAttribute("unseenObjectId",unseenObjectId.toString(),true,false,false);
+					trace("Setting room attribute unseenObjectId:"+unseenObjectId.toString());
+				}
+			}
+
+			private function roomCreatedHandler(event:RoomManagerEvent):void {
+				if (event.getRoom()!=null) {
+					room = event.getRoom();
+					trace("Created room:"+room.getRoomID());
+					if (room.getRoomID()!="chatRoom") {
+						roomJoinedHandler(null);
+					}
+				} else {
+					room = reactor.getRoomManager().joinRoom(charInfoPanel.location);
+				}
+			}	
+					
+			private function roomJoinedHandler(event:RoomEvent):void {
+				if (event.getRoomID()!="chatRoom") {
+					baseObjectsToAdd = new ArrayCollection();
+					baseObjectsToRemove = new ArrayCollection();
+	
+					room.addEventListener(RoomEvent.ADD_OCCUPANT, addOccupantListener);
+					room.addEventListener(RoomEvent.REMOVE_OCCUPANT, removeOccupantListener);
+					room.addMessageListener("NPC_POSITION", npcHandler);
+	
+					chatManager = new ChatManager(reactor, room, chatInput, chatPanel, charInfoPanel.charName);
+					loadMap();
+					otherSprites={};
+				}
+			}
+
+			private function loadOccupants():void {
+				for each (var client:IClient in reactor.getClientManager().getClients()) {
+					if (!client.isSelf()) {
+						trace("Loading occupant:"+client.getClientID());
+						addOtherPlayer(client);
+					}
+				}				
+			}  	
+			
+			private function loadMap():void {	
+				// Fetch the map for this room
+				var zoneId:Number = new Number(room.getAttribute("zoneId"));
+				trace("Fetching zone id:"+zoneId);
+				var params:GetZoneMapById = new GetZoneMapById();
+				params.id = zoneId;
+				zoneService.getZoneMapById(params);
+				progressWindow = ProgressWindow.popUp(Application.application.gameScreen);
+				progressWindow.description.text="Loading... ";	
+			}
+
+			private function addOccupantListener(event:RoomEvent):void
+			{
+				trace("Added "+event.getClientID());
+				addOtherPlayer(event.getClient());
+			}
+			
+			private function addOtherPlayer(client:IClient):void
+			{
+				var otherAvatar:String = client.getAttribute("avatar");
+				if (otherAvatar!=null && otherAvatar.length>0) {
+					var other:BaseObject = new BaseObject();
+					var decoder:Base64Decoder = new Base64Decoder();
+			  		decoder.decode(client.getAttribute("avatar"));
+			  		other.loadBytes(decoder.flush());
+			  		other.owner=client.getClientID();
+			  		callLater(baseObjectsToAdd.addItem,[other]);
+					var otherPosString:String = client.getAttribute("position");
+			  		if (otherPosString!=null && otherPosString.length>2) {
+				  		var otherPos:Array = otherPosString.split(",");
+			  			other.y=otherPos.pop();
+			  			other.x=otherPos.pop();
+			  			trace("Occupant's position is "+other.x+","+other.y);
+			  		}
+			  		client.addEventListener(AttributeEvent.UPDATE, attributeEventListener);
+				} else {
+					trace("Non game client in room");
+				}
+			}
+		
+			private function removeOccupantListener(event:RoomEvent):void
+			{
+				trace("Removed "+event.getClientID());
+				event.getClient().removeEventListener(AttributeEvent.UPDATE, attributeEventListener);
+				baseObjectsToRemove.addItem(event.getClientID());
+			}
+
+			private function attributeEventListener(event:AttributeEvent):void
+			{
+				var attr:Attribute = event.getChangedAttr();
+				if (attr.name=="position") {
+					var otherPosString:String = attr.value;
+			  		if (otherPosString!=null && otherPosString.length>2) {
+				  		var otherPos:Array = otherPosString.split(",");
+				  		var client:Client = event.target as Client;
+				  		var other:BaseObject = otherSprites[client.getClientID()] as BaseObject;
+				  		if (other!=null) {
+					  		if (otherPos.length==2) {
+						  		other.y=otherPos.pop();
+					  			other.x=otherPos.pop();
+					  		} else {
+					  			other.visible=false;
+					  			other.x=0;
+					  			other.y=0;
+					  		}
+				  		}
+			  		}		
+			  	}
+			}			
+
+			private function getZoneByIdHandler(event:GetZoneMapByIdResultEvent):void {
+				zone = event.result.zoneMap;
+				charInfoPanel.location=zone.zoneName;
+				var unseenObjectId:Number = new Number(room.getAttribute("unseenObjectId"));
+				zoneRenderer = new ZoneRenderer(unseenObjectId);
+				zoneRenderer.addEventListener(ZoneRendererEvent.READY_FOR_OBJECTS, zoneLoaded);
+				zoneRenderer.addEventListener(ZoneRendererEvent.READY_FOR_TILES,zoneObjectsLoaded);
+				zoneRenderer.addEventListener(ZoneRendererEvent.RENDERED,zoneRendered);
+				zoneRenderer.loadZone(zone);
+
+				// Fire up this zone's music
+				var decoder:Base64Decoder = new Base64Decoder();
+				var musicDriver:SiONDriver = Application.application.musicDriver;
+				if (zone.music!=null && zone.music.length>0) {
+					try {
+						decoder.decode(zone.music);
+						var bgm:SiONData = musicDriver.compile(decoder.toByteArray().toString())
+						musicDriver.play(bgm);
+					} catch (e:Error) {
+						trace("Error decoding music");
+						if (musicDriver.isPlaying) {
+							musicDriver.fadeOut(10);
+						}
+					}
+				} else {
+					try {
+						musicDriver.stop();
+					} catch (e:Error) {
+						trace("Error stopping music");
+					}
+				}
+				chatManager.sendMessage(charInfoPanel.charName+" has entered "+zone.zoneName);
+				loadPlayerObject();
+			}
+			
+			private function zoneLoaded(event:ZoneRendererEvent):void {
+				// We've loaded the map, lets get the objects
+				var params:GetMapObjectsForZoneId = new GetMapObjectsForZoneId();
+				params.zoneId = zone.zoneId;
+				mapObjectService.getMapObjectsForZoneId(params);				
+			}
+			
+			private function getMapObjectsByZoneIdHandler(event:GetMapObjectsForZoneIdResultEvent):void
+			{
+				callLater(zoneRenderer.loadMapObjects,[event.result]);
+				progressWindow.description.text="Examing Map Objects...";				
+			}
+			
+			private function zoneObjectsLoaded(event:ZoneRendererEvent):void {
+				// Now that the map has loaded, lets get the images
+				fetchTileImageData(0);
+			}
+			
+			public function fetchTileImageData(currentIndex:int):void
+			{
+				var tileToGet:GetTileById = new GetTileById();
+				tileToGet.tileId=zoneRenderer.tileIndex[currentIndex];
+				progressWindow.description.text="Fetching tile id:"+tileToGet.tileId;
+				//trace("Fetching tile id:"+tileToGet.tileId);
+				callLater(tileService.getTileById,[tileToGet]);
+				progressWindow.progressBar.setProgress(currentIndex, zoneRenderer.tileIndex.length);
+			}
+			
+			private function fetchTileResultHandler(event:GetTileByIdResultEvent):void
+			{
+				var tile:Tile = event.result.tile;
+				if (tile!=null) {
+					zoneRenderer.tileImageData.push(tile.imageData);
+					var currentIndex:int = zoneRenderer.tileIndex.indexOf(tile.id);
+					if (currentIndex>=0 && currentIndex<zoneRenderer.tileIndex.length-1) {
+						fetchTileImageData(currentIndex+1);
+					} else {
+						zoneRenderer.loadTileImageData();
+						callLater(progressWindow.closeDialog,[]);
+			
+					}
+				} else {
+					trace("Null tile retrieved!");
+				}
+			}	
+
+			private function zoneServiceFaultHandler(event:FaultEvent):void
+			{
+				Alert.show("Error!\n"+event.message);
+				trace(event.message);
+				trace(event.fault.rootCause);
+				trace(event.fault.faultDetail);
+				trace(event.fault.getStackTrace());
+			}
+
+			private function zoneRendered(event:ZoneRendererEvent):void
+			{
+				camera = new GameCamera(new Point(mapCanvas.width, mapCanvas.height),
+									new Point(zoneRenderer.surfaceBitmapData.width, zoneRenderer.surfaceBitmapData.height));
+				stage.addEventListener(KeyboardEvent.KEY_DOWN, pressedKey);	
+				loadOccupants();
+				loadScreenObjects();
+				addEventListener(Event.ENTER_FRAME, enterFrame);
+				ready = true;
+			}		
+
+			private function pressedKey(event:KeyboardEvent):void
+			{
+				if (ready && ! frozen) {
+					var dest:Point = new Point(pos.x,pos.y);
+					if (event.keyCode==Key.RIGHT) dest.x=dest.x+48;
+					if (event.keyCode==Key.LEFT) dest.x=dest.x-48;
+					if (event.keyCode==Key.DOWN) dest.y=dest.y+48;
+					if (event.keyCode==Key.UP) dest.y=dest.y-48;
+					// If we've attempted to move
+					if (dest.x!=pos.x || dest.y!=pos.y) {
+						adjustForObstacles(dest);
+						fireInteractions(dest);
+						pos = dest;
+						redrawScreen();
+					}
+				}
+			}
+			
+			public function redrawScreen():void
+			{
+				me.setAttribute("position",pos.x+","+pos.y);
+				var adjustment:Point = camera.centerOnLocation(pos);
+				//adjustOthers(adjustment);
+				updateDisplay();				
+			}
+
+			private function adjustForObstacles(dest:Point):void
+			{
+				// Check for bounds
+				if (dest.x<0) dest.x=0;
+				if (dest.y<0) dest.y=0;
+				if (dest.x>zoneRenderer.surfaceBitmapData.width-48) dest.x=zoneRenderer.surfaceBitmapData.width-48;
+				if (dest.y>zoneRenderer.surfaceBitmapData.height-48) dest.y=zoneRenderer.surfaceBitmapData.height-48;			
+				// Check for objects
+				if (zoneRenderer.interactiveSpots["t_"+Math.floor(dest.x/48)+"_"+Math.floor(pos.y/48)]!=undefined) dest.x=pos.x;
+				if (zoneRenderer.interactiveSpots["t_"+Math.floor(pos.x/48)+"_"+Math.floor(dest.y/48)]!=undefined) dest.y=pos.y;
+			}
+
+			private function fireInteractions(dest:Point):void
+			{
+				// Check for npcs
+				var npc:BaseObject = getNPCAtPosition(dest);
+				var dialog:InteractiveDialog;
+				if (npc!=null) {
+					//room.sendModuleMessage("NPC_CONTACT",???);
+					trace("Ran into "+npc.owner);
+					// open interactive dialog
+					dialog = InteractiveDialog.popUp(this);
+					dialog.setEncounteredObject(npc);
+					dialog.setMapObject(zoneRenderer.mapObjects[npc.moid]);
+				} else {
+					// Check for static objects
+					var mo:MapObject = getMapObjectAtPosition(dest);
+					if (mo!=null) {
+						trace("Ran into "+mo.id);
+						dialog = InteractiveDialog.popUp(this);
+						dialog.setMapObject(mo);
+						dialog.objectImage.source=zoneRenderer.getBytesForTileId(mo.tileId);
+					}
+				}
+				// Since we've run into something, set common dialog stuff here
+				if (dialog!=null) {
+					// My character info
+					dialog.setMyInfo(charInfoPanel);
+					// My previous position, in case the interaction results in pushing me back
+					dialog.oldPos = pos;
+					frozen = true;
+				}
+			}
+			
+			private function adjustOthers(adjustment:Point):void
+			{
+				for each (var other:BaseObject in otherSprites) {
+					if (other!=null) {
+						other.x=other.x+adjustment.x;
+						other.y=other.y+adjustment.y;
+					}
+				}				
+			}
+
+			private function getNPCAtPosition(dest:Point):BaseObject
+			{
+				var result:BaseObject = null;
+				for each (var bo:BaseObject in otherSprites) {
+					if (dest.x-bo.x==0 && dest.y-bo.y==0 && bo!=playerSprite) {
+						result = bo;
+					}
+				}
+				return result;
+			}
+			
+			private function getMapObjectAtPosition(dest:Point):MapObject
+			{
+				var result:MapObject = null;
+				for each (var mo:MapObject in zoneRenderer.mapObjects) {
+					if (mo.type!=2 && dest.x-(mo.x*48)==0 && dest.y-(mo.y*48)==0) {
+						result = mo;
+					}
+				}
+				return result;
+			}
+			
+			private function loadScreenObjects():void
+			{
+				var bmd:BitmapData;
+				if (surfaceBitmap==null) {
+					bmd = new BitmapData(mapCanvas.width,mapCanvas.height,true,0x00ffffff);
+					surfaceBitmap = new Bitmap(bmd);
+					mapCanvas.rawChildren.addChild(surfaceBitmap);		
+					surfaceBitmap.x=0;
+					surfaceBitmap.y=0;
+				}
+				if (miniMap.source==null) {
+					miniMap.source=new Bitmap(zoneRenderer.surfaceBitmapData);
+					miniMaplocator = new Sprite();
+					miniMaplocator.graphics.lineStyle(1,123456,.5);
+					var miniMaplocatorSize:Point = camera.getMiniMapSize();
+					miniMaplocator.graphics.drawRect(0,0,miniMaplocatorSize.x, miniMaplocatorSize.y);			
+					miniMapCanvas.rawChildren.addChild(miniMaplocator);
+				}
+				camera.centerOnLocation(pos);
+			}
+			
+			private function loadPlayerObject():void
+			{
+				if (playerSprite==null) {
+					pos = charInfoPanel.position;
+					playerSprite = new BaseObject();
+		  			playerSprite.loadBytes(charInfoPanel.avatar);
+		  			playerSprite.visible=true;
+		  			playerSprite.owner=me.getClientID();
+		  			playerSprite.x=pos.x;
+		  			playerSprite.y=pos.y;
+					callLater(baseObjectsToAdd.addItem,[playerSprite]);
+					me.setAttribute("position",pos.x+","+pos.y);
+					me.setAttribute("charId",new String(charInfoPanel.charId));
+					me.setAttribute("health",new String(charInfoPanel.health));
+				}
+			}
+
+			public function updateDisplay():void
+			{
+				var miniMaplocatorOrigin:Point = camera.getMiniMapOrigin();
+				miniMaplocator.x=miniMaplocatorOrigin.x;
+				miniMaplocator.y=miniMaplocatorOrigin.y;
+				playerSprite.x = pos.x;
+				playerSprite.y = pos.y;
+			}
+			
+			public function enterFrame(event:Event):void
+			{
+				removeDeletedBaseObjects();
+				insertNewBaseObjects();
+				zoneRenderer.renderBitmaps(surfaceBitmap, camera, otherSprites);				
+			}
+			
+			private function removeDeletedBaseObjects():void
+			{
+				for each (var index:String in baseObjectsToRemove) {
+					otherSprites[index]=null;
+				}
+				baseObjectsToRemove.removeAll();
+			}
+			
+			private function insertNewBaseObjects():void
+			{
+				for each (var o:BaseObject in baseObjectsToAdd) {
+					otherSprites[o.owner]=o;
+				}
+				baseObjectsToAdd.removeAll();			
+			}
+			
+			private function npcHandler(fromClient:IClient, msgText:String):void
+			{
+				var who:String = msgText.substring(0,msgText.indexOf(":"));
+				var where:String = msgText.substr(msgText.indexOf(":")+1);
+				trace(who+" moves");
+		  		if (ready && where!=null && where.length>2) {
+			  		var otherPos:Array = where.split(",");
+			  		//var client:Client = event.target as Client;
+			  		var other:BaseObject = otherSprites["npc_"+who] as BaseObject;
+			  		if (other==null) {
+			  			trace(who+" is new");
+			  			other = new BaseObject();
+			  			other.owner="npc_"+who;
+			  			// Old way of getting Image data..  nasty on dialup if many npcs
+			  			//var encodedImage:String = room.getAttribute(who+"_image");
+			  			//var decoder:Base64Decoder = new Base64Decoder();
+			  			//decoder.decode(encodedImage);
+			  			//other.loadBytes(decoder.flush());
+			  			// New way
+			  			var moid:Number = new Number(room.getAttribute(who+"_moid"));
+			  			other.moid = moid;
+			  			var mo:MapObject = zoneRenderer.mapObjects[moid];
+			  			var tileBytes:ByteArray = zoneRenderer.getBytesForTileId(mo.tileId);
+			  			callLater(other.loadBytes,[tileBytes]);
+						baseObjectsToAdd.addItem(other);				  		
+			  		}
+			  		if (otherPos.length==2) {
+				  		other.y=otherPos.pop();
+			  			other.x=otherPos.pop();
+			  			trace(who+" moved to "+other.x+","+other.y);
+			  		} else {
+			  			other.visible=false;
+			  			other.x=0;
+			  			other.y=0;
+			  		}
+		  		}		
+			}
+
+			// =============================================================================
+			// ROOM REMOVED LISTENER
+			// =============================================================================
+			
+			  /**
+			   * Triggered when the chat room is removed. In this application, nothing can
+			   * remove the room, but the room might be removed by an administrator
+			   * application, such as UnionAdmin.
+			   */
+			private function roomRemovedListener (e:RoomManagerEvent):void {
+				if (e.getRoom() == room) {
+					room = null;
+				}
+			}  
+			
+		]]>
+	</mx:Script>	
+
+	<mx:Canvas left="0" right="0" top="0" bottom="30" id="mapCanvas">
+	</mx:Canvas>
+	<union:ChatIncomingTextArea height="144" width="300"  bottom="30" left="0" id="chatPanel" 
+			backgroundAlpha="0.4" color="#F5F815" backgroundColor="#722020" borderStyle="none"
+			verticalScrollPolicy="off" horizontalScrollPolicy="off" wordWrap="true" liveScrolling="true"/>
+	<mx:Canvas id="miniMapCanvas" right="0" top="0" width="100" height="100">
+	  	<mx:Image id="miniMap" scaleContent="true" width="100%" height="100%" x="0" y="0"/>
+	  </mx:Canvas>
+	<mx:HBox left="0" right="0" bottom="0">
+	  <mx:TextInput id="chatInput" enter="chatManager.submitChat()"/>
+	  <union:ChatSendButton click="chatManager.submitChat()" label="Send"/>
+	  <union:ChatSendButton click="globalChatManager.submitChat()" label="To Everyone"/>
+	  <mx:Spacer width="100%" height="10"/>
+	  <mx:Button label="Quests" id="questButton"/>
+	  <mx:Button label="Inventory" id="inventoryButton"/>
+	</mx:HBox>
+	<n1:CharacterInfoPanel width="220" height="150" left="0" top="0" id="charInfoPanel">
+	</n1:CharacterInfoPanel>
+	<mx:Image id="homsar" source="@Embed(source='images/homsar.resized.png')" visible="false"/>
+</mx:Canvas>

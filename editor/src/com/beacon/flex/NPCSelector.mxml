@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" creationComplete="init()">
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.Alert;
+			import net.homeip.UpdateNPCResultEvent;
+			import net.homeip.UpdateNPC;
+			import net.homeip.GetNPCList;
+			import net.homeip.AddNPC;
+			import net.homeip.AddNPCResultEvent;
+			import net.homeip.GetNPCListResponse;
+			import com.beacon.flex.events.NPCEvent;
+			import net.homeip.GetNPCListResultEvent;
+			import net.homeip.NPCServiceService;
+			import net.homeip.NpcCharacter;
+		
+			public var npc:NpcCharacter=null;
+
+			private var npcService:NPCServiceService;
+			private var dialog:AddNPCDialog;
+			private var editDialog:EditNPCDialog;
+
+			[Bindable]
+			private var dataProvider:GetNPCListResponse;
+						
+			private function init():void
+			{
+				npcService = new NPCServiceService();
+				npcService.addgetNPCListEventListener(npcListRetrieved);
+				npcService.addaddNPCEventListener(npcAddedToServer);
+				fetchNpcList();
+			}		
+			private function clickedAdd():void 
+			{
+				dialog = AddNPCDialog.popUp(this);
+				dialog.addEventListener(NPCEvent.ADD, npcAdded);
+			}
+
+			private function clickedEdit():void
+			{
+				npc = npcDataGrid.selectedItem as NpcCharacter;
+				editDialog = EditNPCDialog.popUp(this);
+				editDialog.addEventListener(NPCEvent.EDIT, npcEdited);
+				editDialog.attributeSetter.loadNPC(npc);
+			}	
+				
+			private function npcEdited(event:NPCEvent):void
+			{
+				var index:int = dataProvider.getItemIndex(npc);
+				npc = event.npc;
+				dataProvider.setNpcCharacterAt(npc,index);
+				editDialog.removeEventListener(NPCEvent.EDIT, npcEdited);
+				editDialog.closeDialog();
+				var params:UpdateNPC = new UpdateNPC();
+				params.npc = npc;
+				npcService.updateNPC(params);
+			}	
+			private function fetchNpcList():void
+			{
+				var params:GetNPCList = new GetNPCList();
+				npcService.getNPCList(params);
+			}
+
+			private function npcAdded(event:NPCEvent):void
+			{
+				npc = event.npc;
+				dialog.removeEventListener(NPCEvent.ADD, npcAdded);
+				dialog.closeDialog();
+				var params:AddNPC = new AddNPC();
+				params.npc=npc;
+				npcService.addNPC(params);
+			}
+
+			private function npcAddedToServer(event:AddNPCResultEvent):void
+			{
+				npc.id = event.result.id;
+				dataProvider.addNpcCharacter(npc);
+				npcDataGrid.selectedItem=npc;								
+			}			
+			
+			private function npcUpdatedOnServer(event:UpdateNPCResultEvent):void
+			{
+				if (event.result.success) {
+					Alert.show("Updated!");
+				} else {
+					Alert.show("Failed to update!");
+				}
+			}
+			
+			private function npcListRetrieved(event:GetNPCListResultEvent):void
+			{
+				dataProvider = event.result;
+			}
+		]]>
+	</mx:Script>
+	<mx:Label text="Availble NPCs:" left="10" top="10"/>
+	<mx:DataGrid id="npcDataGrid" editable="false" left="10" right="10" top="36" bottom="10" selectable="true" allowMultipleSelection="false"
+			dataProvider="{dataProvider}">
+		<mx:columns>
+			<mx:DataGridColumn headerText="Name" dataField="name" sortable="true" width="150"/>
+			<mx:DataGridColumn headerText="O" dataField="observation" sortable="true" width="24"/>
+			<mx:DataGridColumn headerText="S" dataField="strength" sortable="true" width="24"/>
+			<mx:DataGridColumn headerText="I" dataField="intelligence" sortable="true" width="24"/>
+			<mx:DataGridColumn headerText="A" dataField="agility" sortable="true" width="24"/>
+			<mx:DataGridColumn headerText="C" dataField="charm" sortable="true" width="24"/>
+			<mx:DataGridColumn headerText="Faction" dataField="faction" sortable="true" width="36"/>
+			<mx:DataGridColumn headerText="Vendor" dataField="vendorStore" sortable="true" width="24"/>
+			<mx:DataGridColumn headerText="Conversation" dataField="conversationStart" sortable="true" width="24"/>
+		</mx:columns>
+	</mx:DataGrid>
+	<mx:Button label="Add NPC" right="10" top="8" id="addNPCButton" click="clickedAdd()"/>
+	<mx:Button label="Edit" id="editButton" right="93" top="8" click="clickedEdit()" enabled="{npcDataGrid.selectedItem!=null}"/>
+	
+</mx:Canvas>

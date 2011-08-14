@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:ns1="http://cxf.apache.org/bindings/xformat" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://category.ws.editor.rpg.beacon.com/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="CategoryServiceService" targetNamespace="http://category.ws.editor.rpg.beacon.com/">
+  <wsdl:types>
+    <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="unqualified" targetNamespace="http://category.ws.editor.rpg.beacon.com/" version="1.0">
+<xs:element name="addCategory" type="tns:addCategory"/>
+<xs:element name="addCategoryResponse" type="tns:addCategoryResponse"/>
+<xs:element name="getCategories" type="tns:getCategories"/>
+<xs:element name="getCategoriesResponse" type="tns:getCategoriesResponse"/>
+<xs:complexType name="getCategories">
+    <xs:sequence/>
+  </xs:complexType>
+<xs:complexType name="getCategoriesResponse">
+    <xs:sequence>
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="categoryList" type="tns:category"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="category">
+    <xs:sequence>
+      <xs:element name="id" type="xs:int"/>
+      <xs:element minOccurs="0" name="name" type="xs:string"/>
+      <xs:element name="parentId" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="addCategory">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="parentId" type="xs:int"/>
+      <xs:element minOccurs="0" name="name" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="addCategoryResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="id" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+  </wsdl:types>
+  <wsdl:message name="addCategoryResponse">
+    <wsdl:part element="tns:addCategoryResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getCategories">
+    <wsdl:part element="tns:getCategories" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="addCategory">
+    <wsdl:part element="tns:addCategory" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getCategoriesResponse">
+    <wsdl:part element="tns:getCategoriesResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="ICategoryService">
+    <wsdl:operation name="getCategories">
+      <wsdl:input message="tns:getCategories" name="getCategories">
+    </wsdl:input>
+      <wsdl:output message="tns:getCategoriesResponse" name="getCategoriesResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="addCategory">
+      <wsdl:input message="tns:addCategory" name="addCategory">
+    </wsdl:input>
+      <wsdl:output message="tns:addCategoryResponse" name="addCategoryResponse">
+    </wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="CategoryServiceServiceSoapBinding" type="tns:ICategoryService">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="getCategories">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getCategories">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getCategoriesResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="addCategory">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="addCategory">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="addCategoryResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="CategoryServiceService">
+    <wsdl:port binding="tns:CategoryServiceServiceSoapBinding" name="CategoryServicePort">
+      <soap:address location="http://darkshade.homeip.net/rpgEditorServer/categories"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

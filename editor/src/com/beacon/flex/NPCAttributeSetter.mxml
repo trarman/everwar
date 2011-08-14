@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%">
+	<mx:Script>
+		<![CDATA[
+			import com.beacon.flex.events.NPCEvent;
+			import net.homeip.NpcCharacter;
+			import mx.events.MenuEvent;
+			
+			public var npc:NpcCharacter;
+			public var faction:Number = Faction.NEUTRAL_CODE;
+			
+			private function changedFaction(event:MenuEvent):void
+			{
+				factionChooser.label=event.item.label;
+				switch (event.item.label) {
+					case Faction.NEUTRAL:
+						faction = Faction.NEUTRAL_CODE;						
+						break;
+					case Faction.FAELOR:
+						faction = Faction.FAELOR_CODE;
+						break;
+					case Faction.AURAN:
+						faction = Faction.AURAN_CODE;
+						break;
+				}
+			}
+			
+			public function getNPC():NpcCharacter {
+				if (npc==null) {
+					npc = new NpcCharacter();
+					npc.id=-1;
+					npc.vendorStore = 0; // for now
+					npc.conversationStart = 0; // for now
+				}
+				npc.name = nameField.text;
+				npc.observation = observationStepper.value;
+				npc.strength = strengthStepper.value;
+				npc.intelligence = intelligenceStepper.value;
+				npc.agility = agilityStepper.value;
+				npc.charm = charmStepper.value;
+				npc.faction = faction;
+				return npc;	
+			}
+			
+			public function loadNPC(npc:NpcCharacter):void {
+				this.npc=npc;
+				nameField.text=npc.name;
+				observationStepper.value=npc.observation;
+				strengthStepper.value=npc.strength;
+				intelligenceStepper.value=npc.intelligence;
+				agilityStepper.value=npc.agility;
+				charmStepper.value=npc.charm;
+				factionChooser.label=Faction.getNameForCode(npc.faction);
+				faction = npc.faction;
+				if (npc.conversationStart>0) {
+					conversationLabel.text = "starter id:"+npc.conversationStart;
+				}
+			}
+			
+			private function clickedChange():void {
+				var dialog:ConversationStarters = ConversationStarters.popup(this);
+				dialog.setNpc(npc);
+				dialog.addEventListener(NPCEvent.UPDATE, conversationUpdated);
+			}
+			
+			private function conversationUpdated(event:NPCEvent):void
+			{
+				npc.conversationStart = event.npc.conversationStart;
+				conversationLabel.text = "starter id:"+npc.conversationStart;
+			}
+		]]>
+	</mx:Script>
+	<mx:Label text="Name:" left="45" top="10"/>
+	<mx:TextInput left="95" right="10" top="8" id="nameField" maxChars="60"/>
+	<mx:Label text="Observation:" left="10" top="36"/>
+	<mx:Label text="Strength:" left="28" top="62"/>
+	<mx:Label text="Intelligence:" left="10" top="88"/>
+	<mx:Label text="Agility:" left="42" top="114"/>
+	<mx:Label text="Charm:" left="38" top="140"/>
+	<mx:NumericStepper id="observationStepper" value="1" minimum="1" maximum="100" stepSize="1" left="95" top="34"/>
+	<mx:NumericStepper left="95" top="60" id="strengthStepper" value="1" minimum="1" maximum="100" stepSize="1"/>
+	<mx:NumericStepper id="intelligenceStepper" value="1" minimum="1" maximum="100" stepSize="1" left="95" top="86"/>
+	<mx:NumericStepper left="95" top="112" id="agilityStepper" value="1" minimum="1" maximum="100" stepSize="1"/>
+	<mx:NumericStepper id="charmStepper" value="1" minimum="1" maximum="100" stepSize="1" left="95" top="138"/>
+	<mx:Label text="Faction:" left="36" top="166"/>
+	<mx:PopUpMenuButton label="Neutral" id="factionChooser" left="95" top="164"
+		itemClick="changedFaction(event)" dataProvider="{[{label:'Neutral'},{label:'Faelor'},{label:'Auran'}]}"/>
+	<mx:Label text="Conversation:" left="2" top="192"/>
+	<mx:Label text="...doesn't talk..." right="86" left="93" top="192" id="conversationLabel"/>
+	<mx:Button label="Change" right="10" top="188" height="22" id="changeButton" click="clickedChange()"/>
+	
+</mx:Canvas>

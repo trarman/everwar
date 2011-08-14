@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Panel xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="400" height="300" title="Choose a Conversation" initialize="init()">
+
+	<mx:Script>
+		<![CDATA[
+			import net.homeip.GetConversationStartersResponse;
+			import com.beacon.flex.events.NPCEvent;
+			import net.homeip.GetConversationById;
+			import net.homeip.GetConversationByIdResultEvent;
+			import net.homeip.ConversationAnswer;
+			import net.homeip.SaveConversationExchange;
+			import net.homeip.SaveConversationAnswerResultEvent;
+			import net.homeip.SaveConversationAnswer;
+			import net.homeip.SaveConversationExchangeResultEvent;
+			import com.beacon.flex.events.ConversationEvent;
+			import net.homeip.GetConversationStarters;
+			import net.homeip.NpcCharacter;
+			import mx.collections.ArrayCollection;
+			import mx.collections.IList;
+			import net.homeip.ConversationExchange;
+			import net.homeip.GetConversationStartersResultEvent;
+			import net.homeip.ConversationServiceService;
+			import mx.managers.PopUpManager;
+			import mx.core.UIComponent;
+			
+			private static var dialog:ConversationStarters;
+			
+			private var conversationService:ConversationServiceService;
+			
+			public var npc:NpcCharacter;
+			private var conversation:ConversationNode;
+			private var nodeList:IList;
+			private var currentPos:int;
+			private var progress:ProgressWindow;
+			
+			public static function popup(parent:UIComponent):ConversationStarters
+			{
+				dialog = PopUpManager.createPopUp(parent, ConversationStarters, true) as ConversationStarters;
+				PopUpManager.centerPopUp(dialog);
+				return dialog;
+			}
+			
+			private function init():void
+			{
+				conversationService = new ConversationServiceService();
+				conversationService.addgetConversationStartersEventListener(getStartersHandler);
+				conversationService.addsaveConversationExchangeEventListener(savedExchange);
+				conversationService.addsaveConversationAnswerEventListener(savedAnswer);
+				conversationService.addgetConversationByIdEventListener(getConversationHandler);
+			}
+			
+			public function closeWindow():void
+			{
+				PopUpManager.removePopUp(dialog);
+				dialog=null;
+			}
+			
+			private function getStartersHandler(event:GetConversationStartersResultEvent):void
+			{
+				conversationStarterList.dataProvider = event.result;
+				if (npc!=null && npc.conversationStart>0) {
+					// Try and find the starter this npc uses already
+					for (var i:uint = 0;i<event.result.length;i++) {
+						var exchange:ConversationExchange = event.result.getConversationExchangeAt(i);
+						if (exchange.id == npc.conversationStart) {
+							break;
+						}
+					}
+					conversationStarterList.selectedIndex=i;
+				}
+			}
+			
+			private function getConversationHandler(event:GetConversationByIdResultEvent):void
+			{
+				// Edit this conversation
+				var cedit:ConversationEditor = ConversationEditor.popup(this);
+				cedit.setConversation(event.result);
+				cedit.addEventListener(ConversationEvent.SAVE, saveConversation);
+			}
+			
+			public function setNpc(npc:NpcCharacter):void
+			{
+				this.npc = npc;
+				var params:GetConversationStarters = new GetConversationStarters();
+				conversationService.getConversationStarters(params);
+			}
+			
+			private function pressedOkay():void
+			{
+				var exchange:ConversationExchange = conversationStarterList.selectedItem as ConversationExchange;
+				trace(npc.name + " will start with:" + exchange.npcDialog);
+				npc.conversationStart = exchange.id;
+				// close this dialog and save the npc change
+				var myEvent:NPCEvent = new NPCEvent(NPCEvent.UPDATE);
+				myEvent.npc = npc;
+				dispatchEvent(myEvent);
+				closeWindow();
+			}
+			
+			private function pressedEdit():void
+			{
+				var exchange:ConversationExchange = conversationStarterList.selectedItem as ConversationExchange;
+				trace("retrieving conversation:"+exchange.id);
+				var params:GetConversationById = new GetConversationById();
+				params.id = exchange.id;
+				conversationService.getConversationById(params);
+			}
+			
+			private function pressedNew():void
+			{
+				// Start a new conversation
+				var cedit:ConversationEditor = ConversationEditor.popup(this);
+				var exchange:ConversationExchange = new ConversationExchange();
+				exchange.id=-1;
+				exchange.starter=true;
+				exchange.npcDialog="Empty!";
+				var elist:IList = new ArrayCollection();
+				elist.addItem(exchange);
+				cedit.setConversation(elist);
+				cedit.addEventListener(ConversationEvent.SAVE, saveConversation);
+			}
+			
+			private function saveConversation(event:ConversationEvent):void
+			{
+				// Save this conversation, new or old
+				conversation = event.rootNode;
+				progress = ProgressWindow.popUp(this);
+				progress.title = "Saving Conversation...";
+				currentPos = 0;
+				nodeList = new ArrayCollection();
+				conversation.addExchangeNodesToCollection(nodeList);
+				saveNextExchange();
+				// TODO: Update starter list here instead of calling the service again
+			}
+			
+			private function saveNextExchange():void
+			{
+				var exchangeNode:ConversationNode = nodeList.getItemAt(currentPos) as ConversationNode;
+				var params:SaveConversationExchange = new SaveConversationExchange();
+				params.exchange = exchangeNode.data as ConversationExchange;
+				conversationService.saveConversationExchange(params);
+				progress.description.text = exchangeNode.label;
+				progress.progressBar.setProgress(.5 * (currentPos*100/nodeList.length),100);
+			}
+
+			private function saveNextAnswer():void
+			{
+				var answerNode:ConversationNode = nodeList.getItemAt(currentPos) as ConversationNode;
+				var params:SaveConversationAnswer = new SaveConversationAnswer();
+				params.answer = answerNode.data as ConversationAnswer;
+				conversationService.saveConversationAnswer(params);
+				progress.description.text = answerNode.label;
+				progress.progressBar.setProgress(50 + .5 * (currentPos*100/nodeList.length),100);
+			}
+			
+			private function savedExchange(event:SaveConversationExchangeResultEvent):void
+			{
+				var exchangeNode:ConversationNode = nodeList.getItemAt(currentPos++) as ConversationNode;
+				exchangeNode.updateId(event.result.id);
+				if (currentPos<nodeList.length) {
+					saveNextExchange();
+				} else {
+					nodeList = new ArrayCollection();
+					conversation.addAnswerNodesToCollection(nodeList);
+					currentPos = 0;
+					saveNextAnswer();
+				}
+			}
+			
+			private function savedAnswer(event:SaveConversationAnswerResultEvent):void
+			{
+				currentPos++;
+				if (currentPos<nodeList.length) {
+					saveNextAnswer();
+				} else {
+					// All Done!
+					progress.closeDialog();
+					conversationStarterList.dataProvider = null;
+					var params:GetConversationStarters = new GetConversationStarters();
+					conversationService.getConversationStarters(params);
+				}			
+			}
+		]]>
+	</mx:Script>
+	<mx:Button label="Cancel" right="10" bottom="10" id="cancelButton" click="closeWindow()"/>
+	<mx:Button label="OK" right="81" bottom="10" id="okayButton" click="pressedOkay()" enabled="{conversationStarterList.selectedItem!=null}"/>
+	<mx:List id="conversationStarterList" right="10" left="10" bottom="40" top="40" labelField="npcDialog" allowMultipleSelection="false"></mx:List>
+	<mx:Button label="New Conversation" right="66" top="10" id="newButton" click="pressedNew()"/>
+	<mx:Button label="Edit" right="10" top="10" id="editButton" enabled="{conversationStarterList.selectedItem!=null}" click="pressedEdit()"/>
+	
+</mx:Panel>

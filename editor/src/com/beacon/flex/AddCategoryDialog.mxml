@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="350" height="204" title="Add Category">
+
+	<mx:Script>
+		<![CDATA[
+			import com.beacon.flex.events.AddCategoryEvent;
+			import mx.managers.PopUpManager;
+			import mx.core.UIComponent;
+			
+			private static var dialog:AddCategoryDialog=null;
+			public var parentId:int;
+			
+			public static function popUp(parent:UIComponent):AddCategoryDialog
+			{
+				dialog = PopUpManager.createPopUp(parent,AddCategoryDialog,true) as AddCategoryDialog;
+				PopUpManager.centerPopUp(dialog);
+				return dialog;
+			}
+			
+			private function cancelPressed():void
+			{
+				var myEvent:AddCategoryEvent = new AddCategoryEvent(AddCategoryEvent.CANCEL);
+				myEvent.dialog=dialog;
+				dispatchEvent(myEvent);
+			}			
+			
+			private function okPressed():void
+			{
+				var myEvent:AddCategoryEvent = new AddCategoryEvent(AddCategoryEvent.OK);
+				myEvent.categoryName=nameField.text;
+				myEvent.parentId=parentId;
+				myEvent.dialog=dialog;
+				dispatchEvent(myEvent);
+			}
+			
+			public function closeDialog():void
+			{
+				PopUpManager.removePopUp(dialog);
+			}
+		]]>
+	</mx:Script>
+
+	<mx:Button label="Cancel" id="cancelButton" right="10" bottom="10" click="cancelPressed()"/>
+	<mx:Button label="Ok" right="81" bottom="10" id="okButton" enabled="{nameField.text.length>0}" click="okPressed()"/>
+	<mx:Text text="Please choose a name for the new tile category you wish to add.  Note, categories can not be deleted!" left="10" top="10" right="10" bottom="94"/>
+	<mx:Label text="Category Name:" left="14" bottom="42"/>
+	<mx:TextInput left="118" bottom="40" right="10" id="nameField" maxChars="100"/>
+	<mx:Label text="Parent Category:" left="10" bottom="68"/>
+	<mx:Label text="None" id="parentCategoryLabel" left="118" bottom="68" right="10"/>
+	
+</mx:TitleWindow>

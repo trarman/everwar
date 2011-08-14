@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="400" height="300" title="Character Creation" creationComplete="init()">
+	<mx:Script>
+		<![CDATA[
+			import net.homeip.AddCharacter;
+			import net.homeip.RpgCharacter;
+			import net.homeip.AddCharacterResultEvent;
+			import net.homeip.CharacterServiceService;
+			import mx.events.ItemClickEvent;
+			import mx.events.MenuEvent;
+			import mx.collections.ArrayCollection;
+			import mx.utils.Base64Encoder;
+			import mx.controls.Alert;
+			import net.user1.reactor.UserAccount;
+			import mx.core.Application;
+			import mx.utils.Base64Decoder;
+			import mx.graphics.ImageSnapshot;
+			import mx.graphics.codec.PNGEncoder;
+			import mx.managers.PopUpManager;
+			import mx.core.UIComponent;
+			
+			private static var dialog:CharacterCreationWindow=null;
+			public var categoryId:int;
+			
+            private var  fileTypes:FileFilter = new FileFilter("Image", "*.jpg;*.jpeg;*;*.gif;*.png;*");
+ 			[Bindable]
+            private var loadFileRef:FileReference = new FileReference();
+
+			private static const faelorDesc:String = "The Faelor have always valued harmony with nature.  They seek to protect the earth from exploit, and promote growth of spirit over acquisitions.  Gods creation must be cherished.\nAs such, they see Everwar as a critical step in halting the Auran advance.";
+			private static const auranDesc:String = "Auran society values strength and steel.  The earth is rich with resources, and there's no point in wasting it.  Gods creation is a gift to mankind.\nAs such, they see the Faelor as a nuisance, getting in the way of progress.";
+
+			private static const faelorStart:String = "Faelor Landing";
+			private static const auranStart:String = "Auran Landing";
+			private var startingLocation:String = faelorStart;		
+			private var startingPoint:Point = Application.application.faelorStartingPoint;
+			private var characterService:CharacterServiceService;
+			
+ 			public static function popUp(parent:UIComponent):CharacterCreationWindow
+			{
+				dialog = PopUpManager.createPopUp(parent,CharacterCreationWindow,true) as CharacterCreationWindow;
+				PopUpManager.centerPopUp(dialog);
+  				return dialog;
+			}
+
+			private function init():void
+			{
+	            loadFileRef.addEventListener(Event.SELECT, fileSelected);
+                loadFileRef.addEventListener(Event.COMPLETE, loadCompleted);	
+                characterService = new CharacterServiceService();
+                characterService.addaddCharacterEventListener(characterAdded);			
+			}	
+					
+			private function cancelPressed():void
+			{
+				characterImage.source = "images/Gobo.png";
+				nameField.text = "";
+				factionDropDown.label="Faelor";
+				//var myEvent:AddTileEvent = new AddTileEvent(AddTileEvent.CANCEL);
+				//myEvent.dialog=dialog;
+				//dispatchEvent(myEvent);
+			}			
+			
+			private function okPressed():void
+			{
+				var myAccount:UserAccount = Application.application.myAccount;
+				var character:RpgCharacter = new RpgCharacter();
+				character.characterId = -1;
+				character.account = myAccount.getUserID();
+				character.observation = 1;
+				character.strength = 1;
+				character.intelligence = 1;
+				character.agility = 1;
+				character.charm = 1;
+				character.avatar = encodeImage();
+				character.health = 1;
+				character.name = nameField.text;
+				character.x = startingPoint.x;
+				character.y = startingPoint.y;
+				character.faction = factionDropDown.label;
+				character.location = startingLocation;
+				character.zoneId = -1;
+				var params:AddCharacter = new AddCharacter();
+				params.character = character;
+				characterService.addCharacter(params);
+			}
+			
+			private function browsePressed():void
+			{
+				loadFileRef.browse([fileTypes]);
+			}
+			
+			public function closeDialog():void
+			{
+				PopUpManager.removePopUp(dialog);
+			}
+			
+            // called after a file has been selected within the file system browser
+            private function fileSelected(evt:Event):void {
+                //trace("file size: " + numberFormatter.format(loadFileRef.size) +" bytes");
+                trace("file name: " + loadFileRef.name);
+                loadFileRef.load();
+            }
+
+            private function  loadCompleted(evt:Event):void {
+                characterImage.source = loadFileRef.data;
+            }
+            			
+			private function encodeImage():ByteArray 
+            {
+             	var pngEnc:PNGEncoder = new PNGEncoder();
+				var byteArr:ByteArray = null;
+
+              	if(characterImage.content !=null)
+              	{
+               		byteArr=pngEnc.encode(ImageSnapshot.captureBitmapData(characterImage));
+                }
+
+                return byteArr;
+            }
+            
+            private function changedFaction(event:MenuEvent):void {
+            	factionDropDown.label = event.item.label;
+            	if (event.item.label=="Faelor") {
+            		factionDesc.text=faelorDesc;
+            		startingLocation = faelorStart;
+            		startingPoint = Application.application.faelorStartingPoint;
+            	} else {
+            		factionDesc.text=auranDesc;
+            		startingLocation = auranStart;
+            		startingPoint = Application.application.auranStartingPoint;
+            	}
+            }
+            
+            private function characterAdded(event:AddCharacterResultEvent):void {
+            	if (event.result==null || event.result.id <= 0) {
+            		Alert.show("Failed to create character!");
+            	}
+				Application.application.currentState="CharacterSelection";
+            }
+		]]>
+	</mx:Script>
+
+	<!-- 3.5 SDK <mx:Image left="20" top="10" width="48" height="48" id="characterImage" scaleContent="true" source="images/Gobo.png" autoLoad="true" smoothBitmapContent="true"/>-->
+	<mx:Image left="20" top="10" width="48" height="48" id="characterImage" scaleContent="true" source="images/Gobo.png" autoLoad="true"/>
+	<mx:Button label="Change" left="10" top="66" id="changeImageButton" click="browsePressed()"/>
+	<mx:Label text="Name:" left="92" top="10"/>
+	<mx:TextInput id="nameField" maxChars="60" left="142" top="8" right="10"/>
+	<mx:Label x="85" y="36" text="Faction:"/>
+	<mx:PopUpMenuButton label="Faelor" id="factionDropDown" left="142" top="34" right="10" 
+		itemClick="changedFaction(event)" dataProvider="{[{label:'Faelor'},{label:'Auran'}]}"/>
+	<mx:Text text="{faelorDesc}" left="10" top="96" right="10" id="factionDesc" bottom="40"/>
+	<mx:Button label="Reset" id="resetButton" bottom="10" right="10" click="cancelPressed()"/>
+	<mx:Button label="Create" id="createButton" right="81" bottom="10" click="okPressed()" enabled="{nameField.text.length>1}"/>
+	<mx:Button label="Cancel" id="cancelButton" left="10" bottom="10" click="Application.application.currentState='CharacterSelection'"/>
+	
+</mx:TitleWindow>

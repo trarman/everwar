@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" width="428" height="322" creationComplete="init()" showCloseButton="false" layout="absolute">
+	<mx:Script>
+		<![CDATA[
+			import net.homeip.UpdateMapObject;
+			import net.homeip.UpdateMapObjectResultEvent;
+			import com.beacon.maps.GetZones;
+			import com.beacon.maps.GetZonesResultEvent;
+			import com.beacon.maps.ZoneMapServiceService;
+			import net.homeip.UpdateExit;
+			import net.homeip.GetExitByIdResultEvent;
+			import net.homeip.GetExitById;
+			import net.homeip.Exit;
+			import net.homeip.AddExit;
+			import net.homeip.UpdateExitResultEvent;
+			import net.homeip.AddExitResultEvent;
+			import net.homeip.ExitServiceService;
+			import com.beacon.flex.events.ZoneSelectedEvent;
+			import mx.utils.ColorUtil;
+			import mx.controls.Alert;
+			import mx.managers.PopUpManager;
+			import mx.core.UIComponent;
+			import net.homeip.MapObject;
+			import mx.collections.ArrayCollection;
+			import net.homeip.GetMapObjectsForZoneIdResponse;
+			import net.homeip.GetMapObjectsForZoneId;
+			import net.homeip.GetMapObjectsForZoneIdResultEvent;
+			import net.homeip.MapObjectServiceService;
+			
+			private static var dialog:MapExitsWindow = null;
+			private var mapObjectService:MapObjectServiceService;
+			private var exitService:ExitServiceService;
+			private var zoneService:ZoneMapServiceService;
+			private var exitList:ArrayCollection;
+			public var zoneId:Number;
+			private var currentSelection:MapObject = null;
+			private var sourceMapObject:MapObject = null;
+			private var targetZoneId:Number = -1;
+			private var zoneSelectionDialog:ZoneSelectionDialog = null;
+
+ 			public static function popUp(parent:UIComponent):MapExitsWindow
+			{
+				dialog = PopUpManager.createPopUp(parent,MapExitsWindow,true) as MapExitsWindow;
+				PopUpManager.centerPopUp(dialog);
+  				return dialog;
+			}
+
+			public function closeDialog():void
+			{
+				PopUpManager.removePopUp(dialog);
+			}
+						
+			private function init():void
+			{
+				mapObjectService = new MapObjectServiceService();
+				mapObjectService.addgetMapObjectsForZoneIdEventListener(objectsRetrieved);
+				mapObjectService.addupdateMapObjectEventListener(mapObjectUpdated);
+				exitService = new ExitServiceService();
+				exitService.addaddExitEventListener(exitAdded);
+				exitService.addupdateExitEventListener(exitUpdated);
+				exitService.addgetExitByIdEventListener(exitToUpdateRetrieved);
+				zoneService = new ZoneMapServiceService();
+				zoneService.addgetZonesEventListener(zoneListRetrieved);
+				mapImage.graphics.clear();
+				title = "Select SOURCE Exit";
+			}
+			
+			public function setZoneId(id:Number):void
+			{
+				zoneId = id;
+				if (zoneId > 0) {
+					callLater(fetchObjects,[]);
+				} else {
+					Alert.show("You must save this map before linking exits");
+				}
+			}
+			
+			private function fetchObjects():void
+			{
+				var params:GetMapObjectsForZoneId = new GetMapObjectsForZoneId();
+				params.zoneId = zoneId;
+				mapObjectService.getMapObjectsForZoneId(params);
+			}			
+			
+			private function fetchZoneList():void
+			{
+				var params:GetZones = new GetZones();
+				zoneService.getZones(params);
+			}
+			
+			private function objectsRetrieved(event:GetMapObjectsForZoneIdResultEvent):void
+			{
+				exitList = new ArrayCollection();
+				currentSelection = null;
+				for each (var mo:MapObject in event.result) {
+					if (mo.type==InteractiveDialog.TYPE_EXIT) {
+						exitList.addItem(mo);
+						mapImage.graphics.beginFill(0xff448844);
+						mapImage.graphics.drawRect(mo.x*2,mo.y*2,2,2);
+						mapImage.graphics.endFill();
+					}
+				}
+				exitDataGrid.dataProvider = exitList;
+			}
+			
+			private function selectedItem():void
+			{
+				if (currentSelection!=null) {
+					mapImage.graphics.beginFill(0xff448844);
+					mapImage.graphics.drawRect(currentSelection.x*2,currentSelection.y*2,2,2);
+					mapImage.graphics.endFill();
+				}
+				currentSelection = exitDataGrid.selectedItem as MapObject;
+				mapImage.graphics.beginFill(0xffffaa66);
+				mapImage.graphics.drawRect(currentSelection.x*2,currentSelection.y*2,2,2);
+				mapImage.graphics.endFill();				
+			}
+			
+			private function selectPressed():void
+			{
+				if (sourceMapObject==null) {
+					sourceMapObject = currentSelection;
+					zoneSelectionDialog = ZoneSelectionDialog.popup(this);
+					zoneSelectionDialog.addEventListener(ZoneSelectedEvent.OPEN,targetZoneSelected);
+					zoneSelectionDialog.addEventListener(ZoneSelectedEvent.CANCEL,cancelZoneSelection);
+					fetchZoneList();
+				} else {
+					selectButton.enabled = false;
+					cancelButton.enabled = false;
+					// We've selected the source and target (source, current)
+					if (sourceMapObject.referenceId>0) {
+						updateExit();
+					} else {
+						// New exit linkage
+						addExit();
+					}
+				}
+			}
+			
+			private function addExit():void
+			{
+				var exit:Exit = new Exit();
+				exit.id = -1;
+				exit.requiredObjectId = -1;
+				exit.targetId = currentSelection.id;
+				var params:AddExit = new AddExit();
+				params.exit = exit;
+				exitService.addExit(params);
+			}
+			
+			private function updateExit():void
+			{
+				var params:GetExitById = new GetExitById();
+				params.id = sourceMapObject.referenceId;
+				exitService.getExitById(params);
+			}
+			
+			private function exitToUpdateRetrieved(event:GetExitByIdResultEvent):void
+			{
+				var exit:Exit = event.result.exit;
+				exit.targetId = currentSelection.id;
+				var params:UpdateExit = new UpdateExit();
+				params.exit = exit;
+				exitService.updateExit(params);
+			}
+			
+			private function targetZoneSelected(event:ZoneSelectedEvent):void
+			{
+				event.dialog.closeDialog();
+				zoneSelectionDialog = null;
+				setZoneId(event.zoneId);
+				mapImage.graphics.clear();
+				exitDataGrid.dataProvider = null;
+				title = "Select TARGET exit";
+			}
+			
+			private function cancelZoneSelection(event:ZoneSelectedEvent):void
+			{
+				event.dialog.closeDialog();
+				sourceMapObject = null;
+			}
+			
+			private function exitAdded(event:AddExitResultEvent):void
+			{
+				trace("New Exit added:"+event.result.id);
+				updateMapObject(event.result.id);
+			}
+			
+			private function exitUpdated(event:UpdateExitResultEvent):void
+			{
+				trace("Exit updated:"+event.result.success);
+				reset();
+			}
+			
+			private function updateMapObject(referenceId:Number):void
+			{
+				sourceMapObject.referenceId = referenceId;
+				var params:UpdateMapObject = new UpdateMapObject();
+				params.mapObject = sourceMapObject;
+				mapObjectService.updateMapObject(params);
+			}
+			
+			private function reset():void
+			{
+				selectButton.enabled=true;
+				cancelButton.enabled=true;
+				sourceMapObject = null;
+				title = "Select SOURCE exit";				
+			}
+			
+			private function zoneListRetrieved(event:GetZonesResultEvent):void
+			{
+				zoneSelectionDialog.zoneMapList.dataProvider = event.result;
+			}
+			
+			private function mapObjectUpdated(event:UpdateMapObjectResultEvent):void
+			{
+				trace("Map Object updated");
+				reset();
+			}
+		]]>
+	</mx:Script>
+	<mx:Image left="10" top="36" width="200" height="200" id="mapImage" x="4" y="4"/>
+	<mx:Label text="Available Exit Locations:" left="10" top="10" x="4" y="210"/>
+	<mx:DataGrid width="172" id="exitDataGrid" editable="false" right="10" top="36" bottom="46" x="4" y="234" 
+			allowMultipleSelection="false" itemClick="selectedItem()">
+		<mx:columns>
+			<mx:DataGridColumn headerText="X" dataField="x"/>
+			<mx:DataGridColumn headerText="Y" dataField="y"/>
+			<mx:DataGridColumn headerText="LinkTo" dataField="referenceId"/>
+		</mx:columns>
+	</mx:DataGrid>
+	<mx:Button label="Cancel" right="10" bottom="10" id="cancelButton" click="closeDialog()" x="4" y="382"/>
+	<mx:Button label="Select" right="81" bottom="10" id="selectButton" x="4" y="410" 
+		enabled="{exitDataGrid.selectedItem!=null}" click="selectPressed()"/>
+	
+</mx:TitleWindow>

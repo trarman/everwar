@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="400" height="102" title="Please Wait" showCloseButton="false">
+	<mx:Script>
+		<![CDATA[
+			import mx.managers.PopUpManager;
+			
+			import mx.core.UIComponent;
+			
+			private static var dialog:ProgressWindow=null;
+			
+			public static function popUp(parent:UIComponent):ProgressWindow
+			{
+				dialog = PopUpManager.createPopUp(parent,ProgressWindow,true) as ProgressWindow;
+				PopUpManager.centerPopUp(dialog);
+				return dialog;
+			}
+			
+			public function closeDialog():void
+			{
+				PopUpManager.removePopUp(dialog);
+			}
+
+		]]>
+	</mx:Script>
+	<mx:ProgressBar id="progressBar" labelPlacement="center" left="10" right="10" top="10" height="16" label="LOADING" indeterminate="false" mode="manual"/>
+	<mx:Label text="Something is happening" left="10" bottom="10" right="10" id="description"/>
+	
+</mx:TitleWindow>

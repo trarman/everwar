@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:ns1="http://cxf.apache.org/bindings/xformat" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://mapObject.ws.rpg.beacon.com/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="MapObjectServiceService" targetNamespace="http://mapObject.ws.rpg.beacon.com/">
+  <wsdl:types>
+    <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="unqualified" targetNamespace="http://mapObject.ws.rpg.beacon.com/" version="1.0">
+<xs:element name="addMapObject" type="tns:addMapObject"/>
+<xs:element name="addMapObjectResponse" type="tns:addMapObjectResponse"/>
+<xs:element name="getMapObjectsForZoneId" type="tns:getMapObjectsForZoneId"/>
+<xs:element name="getMapObjectsForZoneIdResponse" type="tns:getMapObjectsForZoneIdResponse"/>
+<xs:element name="removeMapObjectById" type="tns:removeMapObjectById"/>
+<xs:element name="removeMapObjectByIdResponse" type="tns:removeMapObjectByIdResponse"/>
+<xs:element name="updateMapObject" type="tns:updateMapObject"/>
+<xs:element name="updateMapObjectResponse" type="tns:updateMapObjectResponse"/>
+<xs:complexType name="getMapObjectsForZoneId">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="zoneId" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="getMapObjectsForZoneIdResponse">
+    <xs:sequence>
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="mapObjectList" type="tns:mapObject"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="mapObject">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="id" type="xs:int"/>
+      <xs:element minOccurs="0" name="referenceId" type="xs:int"/>
+      <xs:element minOccurs="0" name="tileId" type="xs:int"/>
+      <xs:element minOccurs="0" name="type" type="xs:int"/>
+      <xs:element minOccurs="0" name="x" type="xs:int"/>
+      <xs:element minOccurs="0" name="y" type="xs:int"/>
+      <xs:element minOccurs="0" name="zoneId" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="updateMapObject">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="mapObject" type="tns:mapObject"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="updateMapObjectResponse">
+    <xs:sequence>
+      <xs:element name="success" type="xs:boolean"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="removeMapObjectById">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="mapObjectId" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="removeMapObjectByIdResponse">
+    <xs:sequence>
+      <xs:element name="success" type="xs:boolean"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="addMapObject">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="mapObject" type="tns:mapObject"/>
+    </xs:sequence>
+  </xs:complexType>
+<xs:complexType name="addMapObjectResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="mapObjectId" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+  </wsdl:types>
+  <wsdl:message name="updateMapObject">
+    <wsdl:part element="tns:updateMapObject" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="removeMapObjectByIdResponse">
+    <wsdl:part element="tns:removeMapObjectByIdResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getMapObjectsForZoneId">
+    <wsdl:part element="tns:getMapObjectsForZoneId" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getMapObjectsForZoneIdResponse">
+    <wsdl:part element="tns:getMapObjectsForZoneIdResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="addMapObjectResponse">
+    <wsdl:part element="tns:addMapObjectResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="removeMapObjectById">
+    <wsdl:part element="tns:removeMapObjectById" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="updateMapObjectResponse">
+    <wsdl:part element="tns:updateMapObjectResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="addMapObject">
+    <wsdl:part element="tns:addMapObject" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="IMapObjectService">
+    <wsdl:operation name="getMapObjectsForZoneId">
+      <wsdl:input message="tns:getMapObjectsForZoneId" name="getMapObjectsForZoneId">
+    </wsdl:input>
+      <wsdl:output message="tns:getMapObjectsForZoneIdResponse" name="getMapObjectsForZoneIdResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="updateMapObject">
+      <wsdl:input message="tns:updateMapObject" name="updateMapObject">
+    </wsdl:input>
+      <wsdl:output message="tns:updateMapObjectResponse" name="updateMapObjectResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="removeMapObjectById">
+      <wsdl:input message="tns:removeMapObjectById" name="removeMapObjectById">
+    </wsdl:input>
+      <wsdl:output message="tns:removeMapObjectByIdResponse" name="removeMapObjectByIdResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="addMapObject">
+      <wsdl:input message="tns:addMapObject" name="addMapObject">
+    </wsdl:input>
+      <wsdl:output message="tns:addMapObjectResponse" name="addMapObjectResponse">
+    </wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="MapObjectServiceServiceSoapBinding" type="tns:IMapObjectService">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="getMapObjectsForZoneId">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getMapObjectsForZoneId">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getMapObjectsForZoneIdResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="updateMapObject">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="updateMapObject">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="updateMapObjectResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="removeMapObjectById">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="removeMapObjectById">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="removeMapObjectByIdResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="addMapObject">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="addMapObject">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="addMapObjectResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="MapObjectServiceService">
+    <wsdl:port binding="tns:MapObjectServiceServiceSoapBinding" name="MapObjectServicePort">
+      <soap:address location="http://darkshade.homeip.net/rpgEditorServer/mapObjects"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

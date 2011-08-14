@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="640" height="400" title="Select Interactive Properties" creationComplete="init()">
+
+	<mx:Script>
+		<![CDATA[
+			import net.homeip.Exit;
+			import net.homeip.UpdateExitResultEvent;
+			import net.homeip.UpdateExit;
+			import net.homeip.GetExitByIdResultEvent;
+			import net.homeip.RemoveExitByIdResultEvent;
+			import net.homeip.RemoveExitById;
+			import net.homeip.AddExitResultEvent;
+			import net.homeip.ExitServiceService;
+			import net.homeip.NpcCharacter;
+			import mx.core.Application;
+			import com.beacon.flex.renderers.ZoneGridItem;
+			import net.homeip.AddMapObject;
+			import net.homeip.UpdateMapObject;
+			import net.homeip.RemoveMapObjectById;
+			import net.homeip.RemoveMapObjectByIdResultEvent;
+			import net.homeip.UpdateMapObjectResultEvent;
+			import net.homeip.MapObject;
+			import mx.controls.Alert;
+			import net.homeip.AddMapObjectResultEvent;
+			import net.homeip.MapObjectServiceService;
+			import mx.utils.Base64Decoder;
+			import mx.graphics.ImageSnapshot;
+			import mx.graphics.codec.PNGEncoder;
+			import com.beacon.flex.events.UpdateTileEvent;
+			import com.beacon.flex.events.AddCategoryEvent;
+			import mx.managers.PopUpManager;
+			import mx.core.UIComponent;
+			
+			public static const STATIONARY_BARRIER:String = "Stationary Barrier (default)";
+			public static const STATIONARY_NPC:String = "Stationary NPC";
+			public static const WANDERING_NPC:String = "Wandering NPC";
+			public static const CONTAINER:String = "Container";
+			public static const EXIT:String = "Exit/Door";
+
+			// Copied from java MapObject class
+		    public static const TYPE_STATIONARY_BARRIER:Number = 0;
+		    public static const TYPE_STATIONARY_NPC:Number = 1;
+		    public static const TYPE_WANDERING_NPC:Number = 2;
+		    public static const TYPE_CONTAINER:Number = 3;
+		    public static const TYPE_EXIT:Number = 4;
+			
+			private static var dialog:InteractiveDialog=null;
+			public var tileId:int;
+			public var xpos:int;
+			public var ypos:int;
+			public var zoneId:int;
+			public var parentGridItem:ZoneGridItem;
+			private var wizardStep:uint = 0;
+			private var objectType:Number = TYPE_STATIONARY_BARRIER;
+			private var mapObjectService:MapObjectServiceService;
+			[Bindable]
+			public var mapObject:MapObject = null;
+			public var npc:NpcCharacter = null;
+			 			
+ 			public static function popUp(parent:UIComponent):InteractiveDialog
+			{
+				dialog = PopUpManager.createPopUp(parent,InteractiveDialog,true) as InteractiveDialog;
+				PopUpManager.centerPopUp(dialog);
+  				return dialog;
+			}
+
+			private function init():void
+			{
+				wizardStep=1;
+				mapObjectService = new MapObjectServiceService();
+				mapObjectService.addaddMapObjectEventListener(mapObjectAdded);
+				mapObjectService.addremoveMapObjectByIdEventListener(mapObjectRemoved);
+				mapObjectService.addupdateMapObjectEventListener(mapObjectUpdated);
+			}	
+
+			public function setMapObject(mapObject:MapObject):void
+			{
+				if (mapObject!=null) {
+					selectTypeForCode(mapObject.type);
+					deleteButton.enabled=true;
+				}
+				this.mapObject = mapObject;				
+			}	
+							
+			private function cancelPressed():void
+			{
+				closeDialog();
+			}			
+			
+			private function okPressed():void
+			{
+				if (wizardStep==1 && objectTypeButtonGroup.selectedValue==STATIONARY_BARRIER) {
+					// We can stop here, we're done
+					if (mapObject!=null) {
+						// Reset as barrier
+						deletePressed();
+					}
+				} else if (wizardStep==1) {
+					wizardStep=2;
+					if (mapObject==null) {
+						mapObject = new MapObject();
+						mapObject.id = -1;
+						mapObject.zoneId = zoneId;
+						mapObject.referenceId = -1;
+					}
+					objectType=getTypeCodeForString(objectTypeButtonGroup.selectedValue as String);
+					mapObject.type = objectType;
+					mapObject.tileId = tileId;
+					mapObject.x = xpos;
+					mapObject.y = ypos;
+					wizardCanvas.removeAllChildren();
+					if (objectType==TYPE_EXIT) {
+						stepDesc.text = "Select item that is required to pass through this portal (if any)";
+						// add list with heading "items" and Add button.
+						wizardCanvas.addChild(new MapObjectPrerequisiteSetter());
+					} else if (objectType==TYPE_CONTAINER) {
+						stepDesc.text = "Select item that is required to open this container (if any)";
+						// add list with heading "items" and Add button.
+						wizardCanvas.addChild(new MapObjectPrerequisiteSetter());
+					} else {
+						if (npc==null) {
+							stepDesc.text = "Select from available NPCs below";
+							wizardCanvas.addChild(new NPCSelector());
+						} else {
+							stepDesc.text = "Update NPC attributes below.  (Note: This updates EVERY instance of this NPC)";
+							var npcSetter:NPCAttributeSetter = new NPCAttributeSetter();
+							wizardCanvas.addChild(npcSetter);
+							callLater(npcSetter.loadNPC,[npc]);
+						}
+					}
+				} else if (wizardStep==2) {
+					if (objectType==TYPE_STATIONARY_NPC || objectType==TYPE_WANDERING_NPC) {
+						if (wizardCanvas.getChildAt(0) is NPCSelector) {
+							var selector:NPCSelector = wizardCanvas.getChildAt(0) as NPCSelector;
+							npc = selector.npcDataGrid.selectedItem as NpcCharacter;
+							mapObject.referenceId = npc.id;
+						} else if (wizardCanvas.getChildAt(0) is NPCAttributeSetter) {
+							mapObject.referenceId = npc.id;
+						}
+					}
+					// We're done.  Commit the changes
+					commitChanges();
+				}
+			}
+			
+			private function commitChanges():void
+			{
+				if (mapObject.id>0) {
+					var updateParams:UpdateMapObject = new UpdateMapObject();
+					updateParams.mapObject = mapObject;
+					mapObjectService.updateMapObject(updateParams);
+				} else {
+					var addParams:AddMapObject = new AddMapObject();
+					addParams.mapObject = mapObject;
+					mapObjectService.addMapObject(addParams);
+				}
+			}
+			
+			private function getTypeCodeForString(string:String):Number {
+			    var code:Number = -1;
+				switch (string) {
+					case STATIONARY_BARRIER:
+						code = TYPE_STATIONARY_BARRIER;
+						break;
+					case STATIONARY_NPC:
+						code = TYPE_STATIONARY_NPC;
+						break;
+					case WANDERING_NPC:
+						code = TYPE_WANDERING_NPC;
+						break;
+					case CONTAINER:
+						code = TYPE_CONTAINER;
+						break;
+					case EXIT:
+						code = TYPE_EXIT;
+						break;						
+				}
+				return code;
+			}
+			
+			private function selectTypeForCode(code:Number):void {
+				switch (code) {
+					case TYPE_STATIONARY_BARRIER:
+						objectTypeButtonGroup.selectedValue = STATIONARY_BARRIER;
+						break;
+					case TYPE_STATIONARY_NPC:
+						objectTypeButtonGroup.selectedValue = STATIONARY_NPC;
+						break;
+					case TYPE_WANDERING_NPC:
+						objectTypeButtonGroup.selectedValue = WANDERING_NPC;
+						break;
+					case TYPE_CONTAINER:
+						objectTypeButtonGroup.selectedValue = CONTAINER;
+						break;
+					case TYPE_EXIT:
+						objectTypeButtonGroup.selectedValue = EXIT;
+						break;
+				}
+			}
+			
+			private function deletePressed():void
+			{
+				var params:RemoveMapObjectById = new RemoveMapObjectById();
+				params.mapObjectId = mapObject.id;
+				mapObjectService.removeMapObjectById(params);
+			}
+			
+			public function closeDialog():void
+			{
+				npc = null;
+				mapObject = null;
+				PopUpManager.removePopUp(dialog);
+			}
+			
+			private function encodeImage():ByteArray 
+            {
+             	var pngEnc:PNGEncoder = new PNGEncoder();
+				var byteArr:ByteArray = null;
+
+              	if(previewImage.content !=null)
+              	{
+               		byteArr=pngEnc.encode(ImageSnapshot.captureBitmapData(previewImage));
+                }
+
+                return byteArr;
+            }
+            
+            private function mapObjectAdded(event:AddMapObjectResultEvent):void
+            {
+            	Alert.show("Object added");
+            	mapObject.id = event.result.mapObjectId;
+            	parentGridItem.mapObject = mapObject;
+            	closeDialog();
+            }
+            
+            private function mapObjectUpdated(event:UpdateMapObjectResultEvent):void
+            {
+            	Alert.show("Object updated");
+            	parentGridItem.mapObject = mapObject;
+            	closeDialog();
+            }
+            
+            private function mapObjectRemoved(event:RemoveMapObjectByIdResultEvent):void
+            {
+            	Alert.show("Object reset as barrier");
+            	parentGridItem.mapObject = null;
+            	parentGridItem.getCell().interactiveLayerTileId = mapObject.tileId;
+            	closeDialog();
+            }
+            
+		]]>
+	</mx:Script>
+
+	<mx:Button label="Cancel" id="cancelButton" right="10" bottom="10" click="cancelPressed()"/>
+	<mx:Button label="Ok" right="81" bottom="10" id="okButton" click="okPressed()"/>
+	<mx:Text id="stepDesc" text="The interactive object at this location is the following type of object:" left="66" top="10" right="10" height="48"/>
+	<mx:Image width="48" left="10" id="previewImage" top="10" height="48"/>
+	<mx:Canvas id="wizardCanvas" left="10" right="10" top="66" bottom="40">
+		<mx:RadioButtonGroup id="objectTypeButtonGroup"/>
+		<mx:RadioButton id="stationaryBarrierButton" label="{STATIONARY_BARRIER}" groupName="objectTypeButtonGroup" selected="true" left="10" top="10"/>
+		<mx:RadioButton id="stationaryNPCButton" label="{STATIONARY_NPC}" groupName="objectTypeButtonGroup" left="10" top="36"/>
+		<mx:RadioButton id="wanderingNPCButton" label="{WANDERING_NPC}" groupName="objectTypeButtonGroup" left="10" top="62"/>
+		<mx:RadioButton id="containerButton" label="{CONTAINER}" groupName="objectTypeButtonGroup" left="10" top="88"/>		
+		<mx:RadioButton id="doorButton" label="{EXIT}" groupName="objectTypeButtonGroup" left="10" top="114"/>		
+	</mx:Canvas>
+	<mx:Button label="Reset as Barrier" id="deleteButton" enabled="false" left="10" bottom="10"/>
+	
+</mx:TitleWindow>

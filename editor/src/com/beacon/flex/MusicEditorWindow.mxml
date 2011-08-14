@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="400" height="300" title="Music Editor" creationComplete="init()">
+
+	<mx:Script>
+		<![CDATA[
+			import mx.core.Application;
+			import org.si.sion.SiONDriver;
+			import mx.managers.PopUpManager;
+			import mx.core.UIComponent;
+			
+			private static var dialog:MusicEditorWindow;
+			private var driver:SiONDriver;
+			
+			public static function popup(parent:UIComponent):MusicEditorWindow {
+				dialog = PopUpManager.createPopUp(parent, MusicEditorWindow, true) as MusicEditorWindow;
+				PopUpManager.centerPopUp(dialog);
+				return dialog;
+			}
+			
+			private function init():void {
+				driver = Application.application.musicDriver;
+				mmlTextArea.text=Application.application.backgroundMusic;
+			}
+			
+			private function pressedPlay():void {
+				if (driver.isPlaying) {
+					driver.stop();
+				}
+				driver.play(mmlTextArea.text);
+			}
+			
+			private function pressedStop():void {
+				if (driver.isPlaying) {
+					driver.stop();
+				}
+			}
+			
+			private function pressedSave():void {
+				Application.application.backgroundMusic=mmlTextArea.text;
+				closeWindow();
+			}
+			
+			public function closeWindow():void
+			{
+				pressedStop();
+				PopUpManager.removePopUp(dialog);
+				driver = null;
+				dialog = null;
+			}
+		]]>
+	</mx:Script>
+	<mx:Button label="Play" id="playButton" left="10" bottom="10" click="pressedPlay()"/>
+	<mx:Button label="Stop" left="69" bottom="10" id="stopButton" click="pressedStop()"/>
+	<mx:Button label="Cancel" right="10" bottom="10" id="cancelButton" click="closeWindow()"/>
+	<mx:Button label="Save" right="81" bottom="10" id="saveButton" click="pressedSave()"/>
+	<mx:Text text="Enter the MML Music Score for this map" left="10" right="10" top="10"/>
+	<mx:TextArea id="mmlTextArea" maxChars="5000" wordWrap="true" right="10" left="10" top="36" bottom="40"/>
+	
+</mx:TitleWindow>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="400" height="300" title="Edit an NPC" xmlns:ns1="com.beacon.flex.*">
+	<mx:Script>
+		<![CDATA[
+			import net.homeip.NpcCharacter;
+			import mx.managers.PopUpManager;
+			import mx.core.UIComponent;
+			import com.beacon.flex.events.NPCEvent;
+			
+			private static var dialog:EditNPCDialog = null;
+			
+ 			public static function popUp(parent:UIComponent):EditNPCDialog
+			{
+				dialog = PopUpManager.createPopUp(parent,EditNPCDialog,true) as EditNPCDialog;
+				PopUpManager.centerPopUp(dialog);
+  				return dialog;
+			}
+
+			public function closeDialog():void
+			{
+				PopUpManager.removePopUp(dialog);
+			}
+			
+			public function clickedAdd():void
+			{
+				var myEvent:NPCEvent = new NPCEvent(NPCEvent.EDIT);
+				myEvent.npc = attributeSetter.getNPC();
+				dispatchEvent(myEvent);
+			}
+		]]>
+	</mx:Script>
+	<ns1:NPCAttributeSetter left="0" top="0" height="220" id="attributeSetter">
+	</ns1:NPCAttributeSetter>
+	<mx:Button label="Cancel" right="10" bottom="10" id="cancelButton" click="closeDialog()"/>
+	<mx:Button label="Save" right="81" bottom="10" id="addButton" click="clickedAdd()" enabled="{attributeSetter.nameField.text.length>0}"/>
+</mx:TitleWindow>

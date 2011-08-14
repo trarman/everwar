@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<projectRoot>
+  <url value="http://darkshade.homeip.net/rpgEditorServer/maps?wsdl">
+    <service name="ZoneMapServiceService">
+      <port name="ZoneMapServicePort">
+        <operations>
+          <operation name="getZoneMapById(parameters: getZoneMapById): getZoneMapByIdResponse"/>
+          <operation name="getZones(parameters: getZones): getZonesResponse"/>
+          <operation name="addZoneMap(parameters: addZoneMap): addZoneMapResponse"/>
+          <operation name="updateZoneMapById(parameters: updateZoneMapById): updateZoneMapByIdResponse"/>
+        </operations>
+      </port>
+    </service>
+    <asPackage absPath="/Users/cternent/svn/rpgeditor/src/com/beacon/maps" name="com.beacon.maps">
+      <mainAsClass name="ZoneMapServiceService.as"/>
+      <otherAsClass name="GetZoneMapByIdResultEvent.as"/>
+      <otherAsClass name="AddZoneMap.as"/>
+      <otherAsClass name="MapObject.as"/>
+      <otherAsClass name="GetZoneMapById_request.as"/>
+      <otherAsClass name="UpdateZoneMapByIdResultEvent.as"/>
+      <otherAsClass name="GetZones_request.as"/>
+      <otherAsClass name="IZoneMapServiceService.as"/>
+      <otherAsClass name="ZoneMapListItem.as"/>
+      <otherAsClass name="BaseZoneMapServiceServiceSchema.as"/>
+      <otherAsClass name="GetZoneMapByIdResponse.as"/>
+      <otherAsClass name="ZoneMap.as"/>
+      <otherAsClass name="AddZoneMap_request.as"/>
+      <otherAsClass name="UpdateZoneMapByIdResponse.as"/>
+      <otherAsClass name="GetZonesResultEvent.as"/>
+      <otherAsClass name="UpdateZoneMapById_request.as"/>
+      <otherAsClass name="ZoneCell.as"/>
+      <otherAsClass name="BaseZoneMapServiceService.as"/>
+      <otherAsClass name="GetZones.as"/>
+      <otherAsClass name="UpdateZoneMapById.as"/>
+      <otherAsClass name="GetZonesResponse.as"/>
+      <otherAsClass name="GetZoneMapById.as"/>
+      <otherAsClass name="AddZoneMapResultEvent.as"/>
+      <otherAsClass name="AddZoneMapResponse.as"/>
+    </asPackage>
+  </url>
+  <url value="http://darkshade.homeip.net/rpgEditorServer/tiles?wsdl">
+    <service name="TileServiceService">
+      <port name="TileServicePort">
+        <operations>
+          <operation name="addTile(parameters: addTile): addTileResponse"/>
+          <operation name="getTilesByCategoryId(parameters: getTilesByCategoryId): getTilesByCategoryIdResponse"/>
+          <operation name="getTileById(parameters: getTileById): getTileByIdResponse"/>
+          <operation name="updateTileById(parameters: updateTileById): updateTileByIdResponse"/>
+        </operations>
+      </port>
+    </service>
+    <asPackage absPath="/Users/cternent/svn/rpgeditor/src/com/beacon/tiles" name="com.beacon.tiles">
+      <mainAsClass name="TileServiceService.as"/>
+      <otherAsClass name="GetTileByIdResultEvent.as"/>
+      <otherAsClass name="BaseTileServiceService.as"/>
+      <otherAsClass name="GetTileById_request.as"/>
+      <otherAsClass name="AddTileResultEvent.as"/>
+      <otherAsClass name="GetTileById.as"/>
+      <otherAsClass name="AddTile_request.as"/>
+      <otherAsClass name="BaseTileServiceServiceSchema.as"/>
+      <otherAsClass name="GetTilesByCategoryId_request.as"/>
+      <otherAsClass name="GetTilesByCategoryIdResponse.as"/>
+      <otherAsClass name="GetTilesByCategoryIdResultEvent.as"/>
+      <otherAsClass name="UpdateTileByIdResponse.as"/>
+      <otherAsClass name="UpdateTileById.as"/>
+      <otherAsClass name="ITileServiceService.as"/>
+      <otherAsClass name="UpdateTileById_request.as"/>
+      <otherAsClass name="AddTile.as"/>
+      <otherAsClass name="Tile.as"/>
+      <otherAsClass name="AddTileResponse.as"/>
+      <otherAsClass name="GetTileByIdResponse.as"/>
+      <otherAsClass name="UpdateTileByIdResultEvent.as"/>
+      <otherAsClass name="GetTilesByCategoryId.as"/>
+    </asPackage>
+  </url>
+  <url value="http://darkshade.homeip.net/rpgEditorServer/categories?wsdl">
+    <service name="CategoryServiceService">
+      <port name="CategoryServicePort">
+        <operations>
+          <operation name="getCategories(parameters: getCategories): getCategoriesResponse"/>
+          <operation name="addCategory(parameters: addCategory): addCategoryResponse"/>
+        </operations>
+      </port>
+    </service>
+    <asPackage absPath="/Users/cternent/svn/rpgeditor/src/com/beacon/categories" name="com.beacon.categories">
+      <mainAsClass name="CategoryServiceService.as"/>
+      <otherAsClass name="AddCategoryResponse.as"/>
+      <otherAsClass name="GetCategoriesResponse.as"/>
+      <otherAsClass name="GetCategories_request.as"/>
+      <otherAsClass name="BaseCategoryServiceServiceSchema.as"/>
+      <otherAsClass name="AddCategory.as"/>
+      <otherAsClass name="ICategoryServiceService.as"/>
+      <otherAsClass name="BaseCategoryServiceService.as"/>
+      <otherAsClass name="GetCategoriesResultEvent.as"/>
+      <otherAsClass name="GetCategories.as"/>
+      <otherAsClass name="AddCategoryResultEvent.as"/>
+      <otherAsClass name="Category.as"/>
+      <otherAsClass name="AddCategory_request.as"/>
+    </asPackage>
+  </url>
+  <url value="http://darkshade.homeip.net/rpgEditorServer/mapObjects?wsdl">
+    <service name="MapObjectServiceService">
+      <port name="MapObjectServicePort">
+        <operations>
+          <operation name="getMapObjectsForZoneId(parameters: getMapObjectsForZoneId): getMapObjectsForZoneIdResponse"/>
+          <operation name="updateMapObject(parameters: updateMapObject): updateMapObjectResponse"/>
+          <operation name="removeMapObjectById(parameters: removeMapObjectById): removeMapObjectByIdResponse"/>
+          <operation name="addMapObject(parameters: addMapObject): addMapObjectResponse"/>
+        </operations>
+      </port>
+    </service>
+    <asPackage absPath="/Users/cternent/svn/rpgeditor/src/net/homeip" name="net.homeip">
+      <mainAsClass name="MapObjectServiceService.as"/>
+      <otherAsClass name="AddMapObject_request.as"/>
+      <otherAsClass name="UpdateMapObject_request.as"/>
+      <otherAsClass name="BaseMapObjectServiceServiceSchema.as"/>
+      <otherAsClass name="MapObject.as"/>
+      <otherAsClass name="GetMapObjectsForZoneId.as"/>
+      <otherAsClass name="BaseMapObjectServiceService.as"/>
+      <otherAsClass name="UpdateMapObjectResponse.as"/>
+      <otherAsClass name="RemoveMapObjectByIdResultEvent.as"/>
+      <otherAsClass name="UpdateMapObjectResultEvent.as"/>
+      <otherAsClass name="GetMapObjectsForZoneId_request.as"/>
+      <otherAsClass name="IMapObjectServiceService.as"/>
+      <otherAsClass name="RemoveMapObjectByIdResponse.as"/>
+      <otherAsClass name="RemoveMapObjectById.as"/>
+      <otherAsClass name="RemoveMapObjectById_request.as"/>
+      <otherAsClass name="AddMapObjectResponse.as"/>
+      <otherAsClass name="GetMapObjectsForZoneIdResultEvent.as"/>
+      <otherAsClass name="UpdateMapObject.as"/>
+      <otherAsClass name="GetMapObjectsForZoneIdResponse.as"/>
+      <otherAsClass name="AddMapObjectResultEvent.as"/>
+      <otherAsClass name="AddMapObject.as"/>
+    </asPackage>
+  </url>
+  <url value="http://darkshade.homeip.net/rpgEditorServer/npc?wsdl">
+    <service name="NPCServiceService">
+      <port name="NPCServicePort">
+        <operations>
+          <operation name="removeNPCById(parameters: removeNPCById): removeNPCByIdResponse"/>
+          <operation name="addNPC(parameters: addNPC): addNPCResponse"/>
+          <operation name="getNPCList(parameters: getNPCList): getNPCListResponse"/>
+          <operation name="getNPCById(parameters: getNPCById): getNPCByIdResponse"/>
+          <operation name="updateNPC(parameters: updateNPC): updateNPCResponse"/>
+        </operations>
+      </port>
+    </service>
+    <asPackage absPath="/Users/cternent/svn/rpgeditor/src/net/homeip" name="net.homeip">
+      <mainAsClass name="NPCServiceService.as"/>
+      <otherAsClass name="AddNPC_request.as"/>
+      <otherAsClass name="GetNPCByIdResultEvent.as"/>
+      <otherAsClass name="BaseNPCServiceServiceSchema.as"/>
+      <otherAsClass name="INPCServiceService.as"/>
+      <otherAsClass name="AddNPCResultEvent.as"/>
+      <otherAsClass name="GetNPCListResponse.as"/>
+      <otherAsClass name="GetNPCById_request.as"/>
+      <otherAsClass name="UpdateNPC.as"/>
+      <otherAsClass name="RemoveNPCByIdResponse.as"/>
+      <otherAsClass name="GetNPCListResultEvent.as"/>
+      <otherAsClass name="AddNPCResponse.as"/>
+      <otherAsClass name="UpdateNPC_request.as"/>
+      <otherAsClass name="AddNPC.as"/>
+      <otherAsClass name="BaseNPCServiceService.as"/>
+      <otherAsClass name="GetNPCByIdResponse.as"/>
+      <otherAsClass name="RemoveNPCByIdResultEvent.as"/>
+      <otherAsClass name="GetNPCList.as"/>
+      <otherAsClass name="GetNPCById.as"/>
+      <otherAsClass name="NpcCharacter.as"/>
+      <otherAsClass name="UpdateNPCResultEvent.as"/>
+      <otherAsClass name="RemoveNPCById_request.as"/>
+      <otherAsClass name="UpdateNPCResponse.as"/>
+      <otherAsClass name="RemoveNPCById.as"/>
+      <otherAsClass name="GetNPCList_request.as"/>
+    </asPackage>
+  </url>
+  <url value="http://darkshade.homeip.net/rpgEditorServer/conversation?wsdl">
+    <service name="ConversationServiceService">
+      <port name="ConversationServicePort">
+        <operations>
+          <operation name="saveConversationExchange(parameters: saveConversationExchange): saveConversationExchangeResponse"/>
+          <operation name="getConversationStarters(parameters: getConversationStarters): getConversationStartersResponse"/>
+          <operation name="saveConversationAnswer(parameters: saveConversationAnswer): saveConversationAnswerResponse"/>
+          <operation name="removeConversationById(parameters: removeConversationById): removeConversationByIdResponse"/>
+          <operation name="getConversationById(parameters: getConversationById): getConversationByIdResponse"/>
+        </operations>
+      </port>
+    </service>
+    <asPackage absPath="/Users/cternent/svn/rpgeditor/src/net/homeip" name="net.homeip">
+      <mainAsClass name="ConversationServiceService.as"/>
+      <otherAsClass name="SaveConversationExchangeResponse.as"/>
+      <otherAsClass name="ConversationExchange.as"/>
+      <otherAsClass name="SaveConversationExchangeResultEvent.as"/>
+      <otherAsClass name="GetConversationStarters_request.as"/>
+      <otherAsClass name="GetConversationStarters.as"/>
+      <otherAsClass name="SaveConversationAnswer_request.as"/>
+      <otherAsClass name="GetConversationByIdResultEvent.as"/>
+      <otherAsClass name="RemoveConversationByIdResultEvent.as"/>
+      <otherAsClass name="IConversationServiceService.as"/>
+      <otherAsClass name="RemoveConversationById.as"/>
+      <otherAsClass name="SaveConversationExchange_request.as"/>
+      <otherAsClass name="SaveConversationAnswerResultEvent.as"/>
+      <otherAsClass name="GetConversationByIdResponse.as"/>
+      <otherAsClass name="RemoveConversationByIdResponse.as"/>
+      <otherAsClass name="SaveConversationAnswer.as"/>
+      <otherAsClass name="GetConversationById_request.as"/>
+      <otherAsClass name="GetConversationById.as"/>
+      <otherAsClass name="BaseConversationServiceServiceSchema.as"/>
+      <otherAsClass name="SaveConversationAnswerResponse.as"/>
+      <otherAsClass name="GetConversationStartersResultEvent.as"/>
+      <otherAsClass name="SaveConversationExchange.as"/>
+      <otherAsClass name="BaseConversationServiceService.as"/>
+      <otherAsClass name="GetConversationStartersResponse.as"/>
+      <otherAsClass name="ConversationAnswer.as"/>
+      <otherAsClass name="RemoveConversationById_request.as"/>
+    </asPackage>
+  </url>
+  <url value="http://darkshade.homeip.net/rpgEditorServer/exit?wsdl">
+    <service name="ExitServiceService">
+      <port name="ExitServicePort">
+        <operations>
+          <operation name="removeExitById(parameters: removeExitById): removeExitByIdResponse"/>
+          <operation name="updateExit(parameters: updateExit): updateExitResponse"/>
+          <operation name="getExitById(parameters: getExitById): getExitByIdResponse"/>
+          <operation name="addExit(parameters: addExit): addExitResponse"/>
+        </operations>
+      </port>
+    </service>
+    <asPackage absPath="/Users/cternent/svn/rpgeditor/src/net/homeip" name="net.homeip">
+      <mainAsClass name="ExitServiceService.as"/>
+      <otherAsClass name="AddExit.as"/>
+      <otherAsClass name="Exit.as"/>
+      <otherAsClass name="UpdateExitResponse.as"/>
+      <otherAsClass name="IExitServiceService.as"/>
+      <otherAsClass name="BaseExitServiceServiceSchema.as"/>
+      <otherAsClass name="BaseExitServiceService.as"/>
+      <otherAsClass name="RemoveExitById_request.as"/>
+      <otherAsClass name="AddExitResponse.as"/>
+      <otherAsClass name="UpdateExitResultEvent.as"/>
+      <otherAsClass name="UpdateExit.as"/>
+      <otherAsClass name="GetExitById_request.as"/>
+      <otherAsClass name="RemoveExitById.as"/>
+      <otherAsClass name="AddExitResultEvent.as"/>
+      <otherAsClass name="RemoveExitByIdResponse.as"/>
+      <otherAsClass name="RemoveExitByIdResultEvent.as"/>
+      <otherAsClass name="GetExitByIdResponse.as"/>
+      <otherAsClass name="UpdateExit_request.as"/>
+      <otherAsClass name="AddExit_request.as"/>
+      <otherAsClass name="GetExitById.as"/>
+      <otherAsClass name="GetExitByIdResultEvent.as"/>
+    </asPackage>
+  </url>
+</projectRoot>
