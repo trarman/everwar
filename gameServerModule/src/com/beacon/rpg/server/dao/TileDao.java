@@ -31,8 +31,9 @@ public class TileDao {
 
     public Tile getTileById(Integer id) {
         Tile tile = null;
+        Connection con = null;
         try {
-            Connection con = pool.getConnection();
+            con = pool.getConnection();
             PreparedStatement stmt = con.prepareStatement("select * from tile where id=?");
             stmt.setInt(1, id);
             ResultSet rs = stmt.executeQuery();
@@ -45,6 +46,8 @@ public class TileDao {
             }
         } catch (SQLException ex) {
             Logger.getLogger(TileDao.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            pool.recycleConnection(con);
         }
         return tile;
     }

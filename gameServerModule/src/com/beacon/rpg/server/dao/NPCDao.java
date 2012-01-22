@@ -31,8 +31,9 @@ public class NPCDao {
 
     public NPCCharacter getNpcById(Integer id) {
         NPCCharacter character = null;
+        Connection con = null;
         try {
-            Connection con = pool.getConnection();
+            con = pool.getConnection();
             PreparedStatement stmt = con.prepareStatement("select * from npc where id=?");
             stmt.setInt(1, id);
             ResultSet rs = stmt.executeQuery();
@@ -45,6 +46,8 @@ public class NPCDao {
             }
         } catch (SQLException ex) {
             Logger.getLogger(NPCDao.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            pool.recycleConnection(con);
         }
         return character;
     }

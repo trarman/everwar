@@ -30,14 +30,17 @@ public class MapObjectDao {
 
     public List<MapObject> getMapObjectsForZoneId(Integer zoneId) {
         List<MapObject> mapObjectList = null;
+        Connection con = null;
         try {
-            Connection con = pool.getConnection();
+            con = pool.getConnection();
             PreparedStatement stmt = con.prepareStatement("select * from mapObjects where zoneId=?");
             stmt.setInt(1, zoneId);
             ResultSet rs = stmt.executeQuery();
             mapObjectList = extractMapObjects(rs);
         } catch (SQLException ex) {
             log.severe(ex.getMessage());
+        } finally {
+            pool.recycleConnection(con);
         }
         return mapObjectList;
     }

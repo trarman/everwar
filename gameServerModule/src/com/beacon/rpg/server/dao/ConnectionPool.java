@@ -80,7 +80,7 @@ public class ConnectionPool {
         if (freeConnections.isEmpty()) {
             freeConnections.add(getNewConnection());
         }
-        Connection result=freeConnections.get(0);
+        Connection result=freeConnections.remove(0);
         try {
             if (!result.isClosed()) {
                 usedConnections.add(result);
@@ -96,10 +96,12 @@ public class ConnectionPool {
     }
 
     public void recycleConnection(Connection con) {
-        if (usedConnections.remove(con)) {
-            freeConnections.add(con);
-        } else {
-            log.severe("Somehow recycled a connection not in use!");
+        if (con!=null) {
+            if (usedConnections.remove(con)) {
+                freeConnections.add(con);
+            } else {
+                log.severe("Somehow recycled a connection not in use!");
+            }
         }
     }
 }

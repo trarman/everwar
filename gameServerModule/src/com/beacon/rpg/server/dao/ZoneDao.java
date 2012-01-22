@@ -36,8 +36,9 @@ public class ZoneDao {
 
     public ZoneMap getZoneMapById(int id) {
         ZoneMap result = null;
+        Connection con = null;
         try {
-            Connection con = pool.getConnection();
+            con = pool.getConnection();
             PreparedStatement stmt = con.prepareStatement("select * from zoneMap where id=?");
             stmt.setInt(1, id);
             ResultSet rs = stmt.executeQuery();
@@ -45,6 +46,8 @@ public class ZoneDao {
             log.info("Loaded " + result.getZoneName());
         } catch (SQLException ex) {
             Logger.getLogger(ZoneDao.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            pool.recycleConnection(con);
         }
         return result;
     }

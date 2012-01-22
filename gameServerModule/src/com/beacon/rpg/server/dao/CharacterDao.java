@@ -31,8 +31,9 @@ public class CharacterDao {
 
     public RPGCharacter getCharacterById(Integer id) {
         RPGCharacter character = null;
+        Connection con = null;
         try {
-            Connection con = pool.getConnection();
+            con = pool.getConnection();
             PreparedStatement stmt = con.prepareStatement("select * from characters where id=?");
             stmt.setInt(1, id);
             ResultSet rs = stmt.executeQuery();
@@ -45,28 +46,34 @@ public class CharacterDao {
             }
         } catch (SQLException ex) {
             Logger.getLogger(CharacterDao.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            pool.recycleConnection(con);
         }
         return character;
     }
 
     public List<RPGCharacter> getCharactersForAccount(String account) {
         List<RPGCharacter> characters = null;
+        Connection con = null;
         try {
-            Connection con = pool.getConnection();
+            con = pool.getConnection();
             PreparedStatement stmt = con.prepareStatement("select * from characters where account=?");
             stmt.setString(1, account);
             ResultSet rs = stmt.executeQuery();
             characters = extractCharacters(rs);
         } catch (SQLException ex) {
             Logger.getLogger(CharacterDao.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            pool.recycleConnection(con);
         }
         return characters;
     }
 
     public boolean updateCharacter(RPGCharacter character) {
         boolean success=false;
+        Connection con = null;
         try {
-            Connection con = pool.getConnection();
+            con = pool.getConnection();
             String query = "UPDATE characters set health=?, observation=?, strength=?, intelligence=?, agility=?," +
                 " charm=?, location=?, zoneId=?, x=?, y=? where id=?";
             PreparedStatement stmt = con.prepareStatement(query);
@@ -85,33 +92,41 @@ public class CharacterDao {
             success=true;
         } catch (SQLException ex) {
             Logger.getLogger(CharacterDao.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            pool.recycleConnection(con);
         }
         return success;
     }
 
     public boolean removeCharacterById(Integer id) {
         boolean success=false;
+        Connection con = null;
         try {
-            Connection con = pool.getConnection();
+            con = pool.getConnection();
             PreparedStatement stmt = con.prepareStatement("delete from characters where id=?");
             stmt.setInt(1, id);
             stmt.executeUpdate();
             success=true;
         } catch (SQLException ex) {
             Logger.getLogger(CharacterDao.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            pool.recycleConnection(con);
         }
         return success;
     }
 
     public Integer createCharacter(RPGCharacter character) {
         Integer id=null;
+        Connection con = null;
         try {
-            Connection con = pool.getConnection();
+            con = pool.getConnection();
             PreparedStatement stmt = con.prepareStatement("insert into characters set x=y etc where id=?");
             stmt.setInt(10, character.getCharacterId());
             stmt.executeUpdate();
         } catch (SQLException ex) {
             Logger.getLogger(CharacterDao.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            pool.recycleConnection(con);
         }
         return id;
     }
